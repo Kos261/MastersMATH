@@ -2,7 +2,7 @@ import numpy as np
 from itertools import combinations
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from initial_conditions import *
+from simulation_combined.initial_conditions import *
 
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
@@ -270,6 +270,10 @@ def to_mothership_ref_frame(states):
         rel_pos_lvlh[t] = rel_local
 
     return  rel_pos_lvlh
+
+
+
+
 
 if __name__ == "__main__":
     '''

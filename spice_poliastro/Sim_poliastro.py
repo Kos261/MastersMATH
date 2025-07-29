@@ -11,14 +11,14 @@ from poliastro.twobody.propagation import propagate
 from poliastro.bodies import Earth, Moon
 from poliastro.constants import rho0_earth, H0_earth
 
-from poliastro.core.elements import rv2coe
+
 from poliastro.core.perturbations import (
     atmospheric_drag_exponential,
     third_body,
     J2_perturbation,
 )
 from poliastro.core.propagation import func_twobody
-from poliastro.core.elements import rv_pqw
+from poliastro.core.elements import rv_pqw, rv2coe
 from poliastro.ephem import build_ephem_interpolant
 from poliastro.plotting import OrbitPlotter3D
 from poliastro.twobody import Orbit

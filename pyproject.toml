@@ -1,0 +1,25 @@
+[project]
+name = "masters-project"
+version = "0.1.0"
+description = "Orbital simulation using Poliastro and Astropy"
+authors = [
+  { name = "Konstanty Kłosiewicz" }
+]
+readme = "README.md"
+requires-python = ">=3.9"
+
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "plotly",
+    "astropy",
+    "poliastro",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

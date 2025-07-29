@@ -1,5 +1,6 @@
 import numpy as np
-
+from numpy.linalg import norm
+import os
 from astropy import units as u
 from astropy.constants import G, M_earth
 from astropy.time import Time, TimeDelta
@@ -8,7 +9,6 @@ from astropy.coordinates import solar_system_ephemeris
 from poliastro.bodies import Earth, Moon
 from poliastro.twobody import Orbit
 from poliastro.constants import rho0_earth, H0_earth
-
 
 # CONSTANTS
 MU = (G * M_earth).to(u.km**3 / u.s**2).value
@@ -34,8 +34,8 @@ epoch = Time(2454283.0, format="jd", scale="tdb")
 
 # SIMULATION PARAMS
 t0 = 0                   # start time [s]
-tf = 3600*24             # time finish (1h) [s]
-dt = 10                  # [s]
+tf = 3600*24         # time finish  [s]
+dt = 30                  # [s]
 
 altitude = 35786.0       # geostationary orbit [km]
 r0 = (R_EARTH + altitude) * u.km   
@@ -51,7 +51,7 @@ def formation():
     Earth,
     r0,   # Pół oś wielka ~ 35 786 km nad pow
     0.0001 * u.one,   # Mimośród półoś mała / półoś wielka
-    30 * u.deg,        # Inklinacja - wychylenie od równika
+    15 * u.deg,        # Inklinacja - wychylenie od równika
     0.0 * u.deg,      # Omega długość węzła wstępującego RAAN kąt między kierunkiem na punkt Barana
     0.0 * u.deg,      # omega argument perycentrum
     0.0 * u.rad,      # Anomalia prawdziwa 
@@ -70,7 +70,8 @@ def formation():
         sat_separation * np.array([0, 0, 0]),
         sat_separation * np.array([0.5, -0.2887, 0.4082]),
         sat_separation * np.array([0.5,  0.2887, -0.4082]),
-        sat_separation * np.array([0.5,  0.5774, 0])
+        # sat_separation * np.array([0.5,  0.5774, 0]),
+        1500 * np.array([0.5,  0.5774, 0])
     ]
 
     orbits = []
@@ -78,12 +79,22 @@ def formation():
 
     for dr in delta_r:
         r_i = r_mother + dr
-        dv = np.cross([0, 0, n], dr)  # omega x r
-        v_i = v_mother + dv                             
-        '''TU ZROBIŁEM 5 * vi'''
-        sat_i = Orbit.from_vectors(Earth, r_i * u.km, 5 * v_i * u.km / u.s, epoch=epoch)
+        # dv = np.cross([0, 0, n], dr)  # omega x r
+        v_i=np.sqrt(MU/norm(r_i)) * (v_mother/ norm(v_mother))                     
+    
+        sat_i = Orbit.from_vectors(Earth, r_i * u.km, v_i * u.km / u.s, epoch=epoch)
         orbits.append(sat_i)
         states.append(np.hstack([r_i, v_i]))
 
     # print(states)
     return states
+
+
+def filename_hash(*args):
+    import hashlib
+    filename = "states"
+    s = "".join(str(a) for a in args)
+    h = hashlib.md5(s.encode()).hexdigest()
+    return filename + h[0:5] + ".npz"
+
+filename = filename_hash(t0,tf,dt,altitude,r0,n,vel0,sat_separation)
