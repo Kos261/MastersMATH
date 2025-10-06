@@ -1,50 +1,35 @@
-# from poliastro.twobody import Orbit
-# from poliastro.bodies import Earth
-# from astropy import units as u
-# from astropy.time import Time
 from dataclasses import dataclass, field
 import numpy as np
-# epoch = Time(2454283.0, format="jd", scale="tdb") 
-R_EARTH = 6378.0 
-# Low Earth Orbit
-LEO = (
-    6745.592,       # Semimajor Axis, Pół oś wielka ~ 367 km nad pow
-    0.01,           # Eccentricity, Mimośród półoś mała / półoś wielka
-    7.81,           # Inclination, Inklinacja - wychylenie od równika
-    100.21,         # RAAN, Omega długość węzła wstępującego RAAN kąt między kierunkiem na punkt Barana
-    152.83,         # Argument of Perigee, omega argument perycentrum
-    0.0 ,           # True Anomaly, Anomalia prawdziwa 
-    )
 
-# Sun Synchronous Orbit
-SSO = (
-    7153.12,           
-    0.00,        
-    98.4469 ,       
-    212.741,
-    0.0,     
-    0.0,        
-    )
+@dataclass
+class Orbit:
+    a: float    # Semimajor Axis, Pół oś wielka ~ 367 km nad pow
+    ecc: float  # Eccentricity, Mimośród półoś e = c/a
+    inc: float  # Inclination, Inklinacja - wychylenie od równika
+    raan: float # RAAN, Omega długość węzła wstępującego RAAN kąt między kierunkiem na punkt Barana
+    argp: float # Argument of Perigee, omega argument perycentrum
+    nu: float    # True Anomaly, Anomalia prawdziwa
+    p: float = field(init=False)
+
+    def __post_init__(self):
+        self.p = self.a * (1 - self.ecc ** 2)
+        self.P = self.a * (1 + self.ecc ** 2)
+
+# Low Earth Orbit
+LEO = Orbit(a=6745.592, ecc=0.001, inc=7.81, raan=100.21, argp=152.83, nu=152.83)
+
+# Sun Synchronous Orbit#dRAAN/dt = 360deg/365d
+SSO = Orbit(a=7153.12, ecc=0.001, inc=98.4469, raan=212.741,argp=0.0, nu=0.0)
 
 # GeoSynchronous Orbit
-GEO = (
-    42164.0,           
-    0.001,       
-    0.0,       
-    0.0,
-    0.0,     
-    0.0,        
-    )
+GEO = Orbit(a=42164.0, ecc=0.001, inc=0.0, raan=0.0, argp=0.0, nu=0.0)
+
+# GeoSynchronous transfer Orbit
+GTO = Orbit(a=24461.0, ecc=0.7322, inc=19.3, raan=75.864, argp=-90.0, nu=90)
 
 # Molniya
-HEO = (
-    26164.0,           
-    0.74,       
-    63.4,       
-    0.0,
-    0.0,     
-    0.0,
-    )
+HEO = Orbit(a=26164.0, ecc=0.74, inc=63.4, raan=0.0, argp=0.0, nu=0.0)
+
 
 
 @dataclass

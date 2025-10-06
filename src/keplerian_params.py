@@ -1,8 +1,12 @@
 import numpy as np
 from numpy.linalg import norm
 from numpy import sin, cos
-MU = 398600.4418
+from orbits import Orbit
 
+MU = 398600.4418
+G = 6.67430151515e-11
+RE = 6378.137         # [km]
+J2 = 1.08262668e-3
 
 def cart2kepler(r,v):
     r_norm = norm(r)
@@ -24,10 +28,10 @@ def cart2kepler(r,v):
         a = np.inf
 
     i = np.acos(h[2]/h_norm)
-    Omega = np.degrees(np.arccos(n[0] / n_norm))
+    raan = np.degrees(np.arccos(n[0] / n_norm))
 
     if n[1] < 0:
-        Omega = 360 - Omega
+        raan = 360 - raan
     
     argp = np.degrees(np.acos(np.dot(n, e) / (n_norm * e)))
 
@@ -39,28 +43,30 @@ def cart2kepler(r,v):
     if np.dot(r, v) < 0:
         nu = 360 - nu
 
-    return a, e, i, Omega, argp, nu
+    return a, e, i, raan, argp, nu
 
 
-def kepler2cart(a, e, i, Omega, argp, nu):
+def kepler2cart(o: Orbit):
     #OE to Perifocal plane
-    i, Omega, argp, nu = np.radians(i), np.radians(Omega), np.radians(argp), np.radians(nu)
-    if hasattr(e, '__len__'):
-        e_norm = norm(e)
+    a, ecc, inc, raan, argp, nu = o.a, o.ecc, o.inc, o.raan, o.argp, o.nu
+    i, raan, argp, nu = np.radians(inc), np.radians(raan), np.radians(argp), np.radians(nu)
+
+    if hasattr(ecc, '__len__'):
+        e_norm = norm(ecc)
     else:
-        e_norm = e
+        e_norm = ecc
 
     p = a * (1 - e_norm * e_norm)
     r = p / (1 + e_norm * np.cos(nu))
     eci = np.array([r * np.cos(nu), r * np.sin(nu), 0])
 
     c = np.sqrt(MU/p)
-    eci_v = np.array([-c * np.sin(nu), c * (e + np.cos(nu)), 0])
+    eci_v = np.array([-c * np.sin(nu), c * (ecc + np.cos(nu)), 0])
 
     R = np.array([
-[cos(Omega)*cos(argp)-sin(Omega)*sin(argp)*cos(i),-cos(Omega)*sin(argp)-sin(Omega)*cos(argp)*cos(i),sin(Omega)*sin(i)],
-[sin(Omega)*cos(argp) + cos(Omega)*sin(argp)*cos(i), -sin(Omega)*sin(argp) + cos(Omega)*cos(argp)*cos(i), -cos(Omega) * sin(i)],
-[sin(argp)*sin(i), cos(argp)*sin(i), cos(i)]
+[cos(raan)*cos(argp)-sin(raan)*sin(argp)*cos(inc),-cos(raan)*sin(argp)-sin(raan)*cos(argp)*cos(inc),sin(raan)*sin(inc)],
+[sin(raan)*cos(argp) + cos(raan)*sin(argp)*cos(inc), -sin(raan)*sin(argp) + cos(raan)*cos(argp)*cos(inc), -cos(raan) * sin(inc)],
+[sin(argp)*sin(inc), cos(argp)*sin(inc), cos(inc)]
 ])
     
     pos = R @ eci

@@ -5,34 +5,38 @@ plt.style.use( 'dark_background' )
 # from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.animation import FuncAnimation
 import numpy as np
-from orbits import R_EARTH
 from itertools import combinations
-
+from keplerian_params import LVLH, RE
 
 class Plotter:
     def __init__(self):
         pass 
 
-    def plot_orbit_3d(self, times, states):
+    def plot_orbit_3d(self, times, states, orbit):
+        T = states.shape[0]
+        num_sat = states.shape[1]
+        
         fig = plt.figure(figsize=(8, 8))
         ax = fig.add_subplot(111, projection='3d')
         
-        u = np.linspace(0, 2*np.pi, 10)
-        v = np.linspace(0, np.pi, 10)
-        x = R_EARTH * np.outer(np.cos(u), np.sin(v))
-        y = R_EARTH * np.outer(np.sin(u), np.sin(v))
-        z = R_EARTH * np.outer(np.ones(np.size(u)), np.cos(v))
-        ax.plot_surface(x, y, z, color='blue', alpha=0.5)
+        # draw sphere
+        R = 3500.0
+        u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+        x = R * np.cos(u) * np.sin(v)
+        y = R * np.sin(u) * np.sin(v)
+        z = R * np.cos(v)
+        ax.plot_wireframe(x, y, z, color="r")
+
         
-        colors = ['red', 'green', 'blue', 'yellow']
-        labels = ['Mothership', 'Sat1', 'Sat2', 'Sat3']
+        # colors = ['red', 'green', 'blue', 'yellow']
+        # labels = ['Mothership', 'Sat1', 'Sat2', 'Sat3']
         step = 10
-        for i in range(4):
+        for i in range(num_sat):
             ax.plot(states[::step, i, 0], 
                     states[::step, i, 1], 
                     states[::step, i, 2], 
-                    color=colors[i], 
-                    label=labels[i], 
+                    # color=colors[i], 
+                    # label=labels[i], 
                     linewidth=1.5)
         
         # Punkty startowe
@@ -43,7 +47,7 @@ class Plotter:
         ax.set_xlabel('X [km]', fontsize=10)
         ax.set_ylabel('Y [km]', fontsize=10)
         ax.set_zlabel('Z [km]', fontsize=10)
-        ax.set_title('Symulacja formacji satelitów (RK4)', fontweight='bold')
+        ax.set_title(f'Simulation of {orbit} (RK4)', fontweight='bold')
         
         # Ustawienie jednakowej skali osi
         max_range = np.max(np.abs(states[:, :, :3])) * 1.2
@@ -55,20 +59,26 @@ class Plotter:
         ax.legend(loc='upper right', fontsize=8)
         ax.grid(True, linestyle=':', alpha=0.5)
         
-        #Lines between sats
-        line_step = 1000
-        for t_idx in range(0, len(times), line_step):
-            positions = states[t_idx]  # shape (4, 3)
-            for i, j in combinations(range(4), 2):
-                x = [positions[i, 0], positions[j, 0]]
-                y = [positions[i, 1], positions[j, 1]]
-                z = [positions[i, 2], positions[j, 2]]
-                ax.plot(x, y, z, color='black', linewidth=0.8, alpha=0.5)
+
+        if num_sat == 4:
+            #Lines between sats
+            line_step = 500
+            for t_idx in range(0, len(times), line_step):
+                positions = states[t_idx]  # shape (4, 3)
+                for i, j in combinations(range(4), 2):
+                    x = [positions[i, 0], positions[j, 0]]
+                    y = [positions[i, 1], positions[j, 1]]
+                    z = [positions[i, 2], positions[j, 2]]
+                    ax.plot(x, y, z, color='black', linewidth=0.8, alpha=0.5)
+
 
         plt.tight_layout()
         plt.show()
 
-    def plot_orbit_3d_plotly(self, times, states, draw_formation = False):
+    def plot_orbit_3d_plotly(self, times, states, draw_formation = True):
+        T = states.shape[0]
+        num_sat = states.shape[1]
+
         colors = ['red', 'green', 'blue', 'yellow']
         labels = ['Mothership', 'Sat1', 'Sat2', 'Sat3']
         step = 50
@@ -90,7 +100,7 @@ class Plotter:
             hoverinfo='skip'
         ))
 
-        for i in range(4):
+        for i in range(num_sat):
             fig.add_trace(go.Scatter3d(
                 x=states[::step, i, 0],
                 y=states[::step, i, 1],
@@ -109,11 +119,11 @@ class Plotter:
             name='Start'
         ))
 
-        if draw_formation:
+        if draw_formation and num_sat == 4:
             line_step = 1000
             for t_idx in range(0, len(times), line_step):
                 positions = states[t_idx]
-                for i, j in combinations(range(4), 2):
+                for i, j in combinations(range(num_sat), 2):
                     fig.add_trace(go.Scatter3d(
                         x=[positions[i, 0], positions[j, 0]],
                         y=[positions[i, 1], positions[j, 1]],
@@ -141,7 +151,15 @@ class Plotter:
         fig.show()
 
     def animate_formation(self, states, step=50, lvlh=False):
-        # T = states.shape[0]
+        T = states.shape[0]
+        num_sat = states.shape[1]
+
+        if num_sat > 4:
+            raise Exception("Too many satellites!")
+        elif num_sat < 4:
+            raise Exception("Not enough satellites")
+
+
         if lvlh:
             states = LVLH(states)
 
@@ -189,12 +207,17 @@ class Plotter:
         plt.tight_layout()
         plt.show()
  
-    def plot_errors(self, times, states):
+    def plot_errors(self, times, states, sat_separation):
         positions = states[:, :, :3]  # shape (n_steps, 4, 3)
-        n_steps = len(times)
+        T = states.shape[0]
+        num_sat = states.shape[1]
         
-        dist_errors = np.zeros((n_steps, 4))  # 4 satellite pairs
-        
+        if num_sat > 4:
+            raise Exception("Too many satellites!")
+        elif num_sat < 4:
+            raise Exception("Not enough satellites")
+
+        dist_errors = np.zeros((T, num_sat))  # 4 satellite pairs
         dist_errors[:, 0] = np.linalg.norm(positions[:, 0] - positions[:, 1], axis=1) - sat_separation
         dist_errors[:, 1] = np.linalg.norm(positions[:, 1] - positions[:, 2], axis=1) - sat_separation
         dist_errors[:, 2] = np.linalg.norm(positions[:, 2] - positions[:, 3], axis=1) - sat_separation
