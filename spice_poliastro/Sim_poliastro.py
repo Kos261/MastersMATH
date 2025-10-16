@@ -29,6 +29,9 @@ from poliastro.util import norm
 
 import plotly.io as pio
 import plotly.graph_objects as go
+
+import orbits
+
 pio.renderers.default = "browser"
 
 MU = 398600.4418    # geocentryczny parametr grawitacyjny Ziemi [km^3/s^2]
@@ -74,7 +77,7 @@ def f(t0, state, k):
     du_ad_atm = np.array([0, 0, 0, ax, ay, az])
 
     # J2 perturbation
-    ax, ay, az = J2_perturbation(t0, state, k, J2=Earth.J2.value, R=Earth.R.to(u.km).value)
+    ax, ay, az = J2_perturbation(t0, state, k, J2=orbits.J2.value, R=Earth.R.to(u.km).value)
     du_ad_j2 = np.array([0, 0, 0, ax, ay, az])
 
 

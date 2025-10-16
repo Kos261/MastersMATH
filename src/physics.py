@@ -1,6 +1,5 @@
 import numpy as np
-from keplerian_params import MU, G, RE, J2
-
+from orbits import MU, G, RE, J2
 
 
 def f(t, state, J2_pert=False):

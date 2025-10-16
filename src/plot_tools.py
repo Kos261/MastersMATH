@@ -6,7 +6,8 @@ plt.style.use( 'dark_background' )
 from matplotlib.animation import FuncAnimation
 import numpy as np
 from itertools import combinations
-from keplerian_params import LVLH, RE
+from orbits import LVLH, RE
+
 
 class Plotter:
     def __init__(self):
