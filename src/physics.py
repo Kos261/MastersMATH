@@ -2,49 +2,60 @@ import numpy as np
 from orbits import MU, G, RE, J2
 
 
-def f(t, state, J2_pert=False):
-    assert np.all(np.isfinite(state)), "non finite input state"
-    # state: (4,6)  -> [x,y,z,vx,vy,vz] dla 4 satelitów
-    r = state[:, :3]                      # (4,3)
-    v = state[:, 3:6]                     # (4,3)
-    # a = acc(state, masses)  # (4,3)
-    rn = np.linalg.norm(r, axis=1, keepdims=True)  # (N,1)
-    assert np.all(rn>0), "zero radius encountered"
+def f(t, state, masses=None, central_mass=None, J2_pert=False):
+    r = state[:, :3]
+    v = state[:, 3:]
+    a = _acc_from_positions(r, masses, central_mass, J2_pert)
 
-    #Kepler
-    a_kep = -MU * r / (rn**3)
-           # (4,6)
+    derivative = np.hstack([v, a])
+    return derivative
 
-    #J2
-    a_j2 = 0
-    if J2_pert:
-        x,y,z = r[:,0], r[:,1], r[:,2]
-        r2 = rn.squeeze()**2
-        z2 = z**2
-        factor = 1.5 * J2 * MU * (RE*RE)/r2**2.5
-        ax = x /rn * (5 * z2 / r2 - 1)
-        ay = y /rn * (5 * z2 / r2 - 1)
-        az = z /rn * (5 * z2 / r2 - 3)
-        a_j2 = np.column_stack((ax, ay, az))
+def acc(state, masses=None, central_mass=None, J2_pert=False):
+    """API kompatybilne ze starymi solverami."""
+    r = state[:, :3]
+    return _acc_from_positions(r, masses, central_mass, J2_pert)
 
-    a = a_kep + a_j2
-    derivatives = np.hstack([v, a])
-    return derivatives
+def _acc_from_positions(r, masses=None, central_mass=None, J2_pert=False):
+    if masses is None:
+        a = acc_central(r, central_mass)
+        if J2_pert:
+            a += acc_j2(r)
+        return a
+    else:
+        return acc_nbody(r, masses)
 
-def acc(state, masses):
-    r = state[:, :3]                          # (N,3)
-    v = state[:, 3:]                          # (N,3)
+def acc_nbody(r, masses):                         # (N,3)
     N = len(masses)                           #  N+1 bcs Earth 1st
     a = np.zeros((N,3))                       # (N,3)
-    
-    
+
     for i in range(N):
         for j in range(N):
             if i == j: 
                 continue
             rij = r[j] - r[i]
             a[i] += G * masses[j] * rij / (np.dot(rij, rij)**1.5)
-    return a   
+    return a
+
+def acc_central(r, central_mass):
+    # r: (4,3)  -> [x,y,z] dla 4 satelitów
+    rn = np.linalg.norm(r, axis=1, keepdims=True)  # (N,1)
+    assert np.all(rn > 0), "zero radius encountered"
+    mu = MU if central_mass is None else 6.67430e-20 * central_mass
+    a = -mu * r / (rn ** 3)
+    return a
+
+def acc_j2(r):
+    rn = np.linalg.norm(r, axis=1, keepdims=True)      # (N,1)
+    x, y, z = r[:, 0], r[:, 1], r[:, 2]                # (N,)
+    r2 = (rn.squeeze())**2                              # (N,)
+    z2 = z**2                                           # (N,)
+    factor = 1.5 * J2 * MU * (RE**2) / (r2**2.5)        # (N,)
+    c = (5.0 * z2 / r2 - 1.0)                           # (N,)
+    ax = factor * x * c
+    ay = factor * y * c
+    az = factor * z * (5.0 * z2 / r2 - 3.0)
+    return np.column_stack((ax, ay, az))                # (N,3)
+
 
 def hamiltonian(state, masses):
     r = state[:, :3]         # (N,3)
