@@ -12,15 +12,7 @@ def runge_kutta_4(state, t, h, f):
 
 
 def explicite_euler(state, t, masses, h, f):
-    # r = state[:, :3]
-    # v = state[:, 3:]
-    # a = acc(state, masses)
-    # r_new = r + h * v
-    # v_new = v + h * a
-
-    # return np.hstack([r_new, v_new])
     state_new = state + h * f(t, state, masses)
-
     return state_new
 
 

@@ -22,7 +22,7 @@ class Plotter:
         
         # draw sphere
         R = 3500.0
-        u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+        u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:19j]
         x = R * np.cos(u) * np.sin(v)
         y = R * np.sin(u) * np.sin(v)
         z = R * np.cos(v)

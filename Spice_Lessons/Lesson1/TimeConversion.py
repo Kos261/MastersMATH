@@ -7,7 +7,8 @@ def convtm(utc_time):
 
     # Universal Time standard
     # utc_time = input(" Input UTC time (ex. 2004 jan 11 19:32:00): ")
-    
+
+
     print(f" Converting UTC time: {utc_time:s}")
 
     #Ephemeris time

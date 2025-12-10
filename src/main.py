@@ -17,21 +17,10 @@ def propagate_orbit_rk4(states, t0, tf, h, f):
     
     return times, states
 
-def compute_states(state0, t0, tf, dt, eq_of_motion, propagator='rk4'):
+def propagate_orbits(state0, t0, tf, dt, eq_of_motion, propagator='rk4', masses=None, central_mass=None, J2_pert=False):
     '''Load existing orbits, if None, compute one'''
-    def filename_hash(*args):
-        import hashlib
-        filename = "states"
-        s = "".join(str(a) for a in args)
-        h = hashlib.md5(s.encode()).hexdigest()
-        return filename + h[0:5] + ".npz"
 
     filename = filename_hash(state0, t0, tf, dt)
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    cache_dir = os.path.join(base_dir, "cache")
-    os.makedirs(cache_dir, exist_ok=True)
-    path = os.path.join(cache_dir, filename)
-
 
     # if os.path.exists(path):
     #     print(f"[cache] loading from {path}")
@@ -46,10 +35,24 @@ def compute_states(state0, t0, tf, dt, eq_of_motion, propagator='rk4'):
 
     return times, states
 
+def filename_hash(*args):
+    import hashlib
+    filename = "states"
+    s = "".join(str(a) for a in args)
+    h = hashlib.md5(s.encode()).hexdigest()
+    return filename + h[0:5] + ".npz"
+
+def load_cached_orbits(filename):
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    cache_dir = os.path.join(base_dir, "cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    path = os.path.join(cache_dir, filename)
+    cached_orbits = np.load(path, allow_pickle=True)
+    return cached_orbits
 
 if __name__ == "__main__":
     t0 = 0
-    tf = 60*60*12
+    tf = 60*60*12  #seconds
     h = 10     
     m = 100 #kg
     sat_separation = 1000 # km
@@ -57,14 +60,14 @@ if __name__ == "__main__":
     ''' 
     (T, num_sat, 6)   time, 4 satellites, x y z vx vy vz 
     '''
-    states = initial_formation_1(t0, tf, h, orbit=orbit)
+    # states = initial_formation_1(t0, tf, h, orbit=orbit)
     # states = initial_formation_4(t0, tf, h, sat_separation,orbit=orbit)
-    # states = initial_formation_explosion(t0, tf, h, orbit=orbit)
+    states = initial_formation_explosion(t0, tf, h, orbit=orbit)
     times, states = propagate_orbit_rk4(states=states, t0=t0, tf=tf, h=h, f=f)
 
     plotter = Plotter()
     # plotter.animate_formation(states, step=50, lvlh=True)
-    # plotter.plot_errors(times, states, sat_separation)    
+    # plotter.plot_errors(times, states, sat_separation)
     # # # plotter.plot_orbit_3d_plotly(times, states)
     plotter.plot_orbit_3d(times, states, orbit='GEO')
     

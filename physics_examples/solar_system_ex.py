@@ -146,39 +146,39 @@ if __name__ == "__main__":
 
     bodies = [SUN, JUP, SAT, URA, NEP, PLU]
     t0 = 0.0
-    tf = 1000000
-    h = 10
+    tf = 100000000.0
+    h = 100.0
 
-    # states_exp = propagate_orbit(bodies, t0=t0, tf=tf, h=h, integrator=explicite_euler)
-    # states_mid = propagate_orbit(bodies, t0=t0, tf=tf, h=h, integrator=midpoint_scheme)
+    states_exp = propagate_orbit(bodies, t0=t0, tf=tf, h=h, integrator=explicite_euler)
+    states_mid = propagate_orbit(bodies, t0=t0, tf=tf, h=h, integrator=midpoint_scheme)
     states_rk4 = propagate_orbit(bodies, t0=t0, tf=tf, h=h, integrator=runge_kutta_4)
     
-    # states_sym = propagate_orbit(bodies, t0=t0, tf=tf, h=h, integrator=symplectic_euler)
+    states_sym = propagate_orbit(bodies, t0=t0, tf=tf, h=h, integrator=symplectic_euler)
     states_str = propagate_orbit(bodies, t0=t0, tf=tf, h=h, integrator=stormer_verlet)
 
-    # plot_orbit_3d(states_exp, "Explicite euler h=10")
-    # plot_orbit_3d(states_mid, "Midpoint Scheme h=10")
+    plot_orbit_3d(states_exp, "Explicite euler h=10")
+    plot_orbit_3d(states_mid, "Midpoint Scheme h=10")
     plot_orbit_3d(states_rk4, "Runge Kutta-4 h=10")
 
-    # plot_orbit_3d(states_sym, "Symplectic Euler h=100")
+    plot_orbit_3d(states_sym, "Symplectic Euler h=100")
     plot_orbit_3d(states_str, "Stromer-Verlet h=10")
 
 
-    # masses = np.array([b.mass for b in bodies], dtype=float)
-    # # energies_sym = np.zeros(len(states_sym))
-    # # energies_exp = np.zeros(len(states_exp))
-    # energies_str = np.zeros(len(states_str))
-    # energies_rk4 = np.zeros(len(states_rk4))
-    # for i in range(len(states_rk4)):
-    #     # energies_exp[i] = hamiltonian(states_exp[i], masses)
-    #     # energies_sym[i] = hamiltonian(states_sym[i], masses)
-    #     energies_str[i] = hamiltonian(states_str[i], masses)
-    #     energies_rk4[i] = hamiltonian(states_rk4[i], masses)
-    # # print("ENERGIA DLA SYM. EULER:", energies_sym)
-    # # plt.plot(energies_exp)
-    # # plt.plot(energies_mid)
-    # plt.plot(energies_str)
-    # plt.plot(energies_rk4)
-    # plt.title("ENERGIA UKLADU")
-    # plt.legend(["Stormer Verlet", "RK4"])
+    masses = np.array([b.mass for b in bodies], dtype=float)
+    energies_sym = np.zeros(len(states_sym))
+    energies_exp = np.zeros(len(states_exp))
+    energies_str = np.zeros(len(states_str))
+    energies_rk4 = np.zeros(len(states_rk4))
+    for i in range(len(states_rk4)):
+        energies_exp[i] = hamiltonian(states_exp[i], masses)
+        energies_sym[i] = hamiltonian(states_sym[i], masses)
+        energies_str[i] = hamiltonian(states_str[i], masses)
+        energies_rk4[i] = hamiltonian(states_rk4[i], masses)
+    print("ENERGIA DLA SYM. EULER:", energies_sym)
+    plt.plot(energies_exp)
+    # plt.plot(energies_mid)
+    plt.plot(energies_str)
+    plt.plot(energies_rk4)
+    plt.title("ENERGIA UKLADU")
+    plt.legend(["Stormer Verlet", "RK4"])
     plt.show()
