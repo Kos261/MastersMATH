@@ -5,47 +5,36 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.orbits import SUN, JUP, SAT, URA, PLU, NEP
 import matplotlib.pyplot as plt
-import multiprocessing
 from multiprocessing import Pool
 import copy
 from numba import jit, prange
 import os
-import torch
+from tqdm import tqdm
 
 G = 2.95912208286e-4  # AU^3 / (day^2 * Msun)
 
-# Detect GPU availability
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
-
 def hamiltonian(state, masses):
-    """Compute total energy (kinetic + potential) - GPU accelerated"""
-    # Convert to torch tensors if needed
-    if isinstance(state, np.ndarray):
-        state_t = torch.from_numpy(state).to(device)
-        masses_t = torch.from_numpy(masses).to(device)
-    else:
-        state_t = state.to(device)
-        masses_t = masses.to(device)
+    """Compute total energy (kinetic + potential) - vectorized for speed"""
+    r = state[:, :3]  # (N,3)
+    v = state[:, 3:]  # (N,3)
+    N = len(masses)
     
-    r = state_t[:, :3]  # (N,3)
-    v = state_t[:, 3:]  # (N,3)
-    N = len(masses_t)
+    # Ensure consistent dtype
+    masses = masses.astype(np.float32)
     
     # Kinetic energy: sum(0.5 * m * v^2)
-    v_squared = torch.sum(v * v, dim=1)  # (N,)
-    Ek = 0.5 * torch.dot(masses_t, v_squared)
+    v_squared = np.sum(v * v, axis=1)  # (N,)
+    Ek = 0.5 * np.dot(masses, v_squared)
     
     # Potential energy: -G * sum_{i<j} m_i m_j / r_ij
-    Ep = torch.tensor(0.0, device=device)
+    Ep = 0.0
     for i in range(N):
         for j in range(i + 1, N):
             rij = r[j] - r[i]
-            r_ij = torch.sqrt(torch.dot(rij, rij))
-            Ep -= G * masses_t[i] * masses_t[j] / r_ij
+            r_ij = np.sqrt(np.dot(rij, rij))
+            Ep -= G * masses[i] * masses[j] / r_ij
     
-    energy = (Ek + Ep).item() if hasattr(Ek + Ep, 'item') else float(Ek + Ep)
-    return energy
+    return Ek + Ep
 
 def f(t, state, masses):
     """Compute state derivatives: [v, a]"""
@@ -54,46 +43,28 @@ def f(t, state, masses):
     a = acc(state, masses)                # (N,3)
     return np.hstack([v, a])              # (N,6)
 
-def acc_gpu(r_tensor, masses_tensor, G_val, device):
-    """Compute accelerations using PyTorch GPU acceleration"""
-    N = len(masses_tensor)
-    a = torch.zeros((N, 3), device=device, dtype=r_tensor.dtype)
+@jit(nopython=True, parallel=True, fastmath=True)
+def acc_jit(r, masses, G):
+    """Compute accelerations using Numba JIT with parallelization and fastmath"""
+    N = len(masses)
+    a = np.zeros((N, 3))
     
-    # Vectorized computation using broadcasting
-    r_expanded_i = r_tensor.unsqueeze(1)  # (N, 1, 3)
-    r_expanded_j = r_tensor.unsqueeze(0)  # (1, N, 3)
-    
-    rij = r_expanded_j - r_expanded_i  # (N, N, 3)
-    r_sq = torch.sum(rij * rij, dim=2)  # (N, N)
-    
-    # Avoid division by zero on diagonal
-    r_sq = torch.where(r_sq < 1e-10, torch.ones_like(r_sq), r_sq)
-    
-    # Compute 1/r^3
-    inv_r3 = torch.where(r_sq < 1e-10, torch.zeros_like(r_sq), 1.0 / (r_sq * torch.sqrt(r_sq)))
-    
-    # Broadcast masses
-    masses_factor = G_val * masses_tensor.unsqueeze(0)  # (1, N)
-    
-    # Compute acceleration contributions
-    factor = masses_factor * inv_r3  # (N, N)
-    
-    # Sum contributions from all j to each i
-    a = torch.sum(factor.unsqueeze(2) * rij, dim=1)  # (N, 3)
-    
+    for i in prange(N):
+        for j in range(N):
+            if i == j:
+                continue
+            rij = r[j] - r[i]
+            r_sq = rij[0]*rij[0] + rij[1]*rij[1] + rij[2]*rij[2]
+            inv_r3 = 1.0 / (r_sq * np.sqrt(r_sq))
+            factor = G * masses[j] * inv_r3
+            a[i, 0] += factor * rij[0]
+            a[i, 1] += factor * rij[1]
+            a[i, 2] += factor * rij[2]
     return a
 
 def acc(state, masses):
-    """Extract positions and compute accelerations using GPU"""
-    if isinstance(state, np.ndarray):
-        r_tensor = torch.from_numpy(state[:, :3]).to(device).float()
-        masses_tensor = torch.from_numpy(masses).to(device).float()
-    else:
-        r_tensor = state[:, :3].to(device)
-        masses_tensor = masses.to(device)
-    
-    a_tensor = acc_gpu(r_tensor, masses_tensor, G, device)
-    return a_tensor.cpu().numpy() if isinstance(state, np.ndarray) else a_tensor        
+    """Extract positions and compute accelerations"""
+    return acc_jit(state[:, :3], masses, G)        
 
 def pack_state(bodies):
     return np.array([np.hstack([b.pos, b.vel]) for b in bodies], dtype=float)  # (N,6)
@@ -164,7 +135,7 @@ def runge_kutta_4(state, t, masses, h, f):
 
 
 
-def propagate_orbit(bodies, t0, tf, h, integrator):
+def propagate_orbit(bodies, t0, tf, h, integrator, integrator_name="Integration", position=0):
     T = int((tf - t0)//h) + 1
     N = len(bodies)
     masses = np.array([b.mass for b in bodies], dtype=np.float32)
@@ -172,36 +143,23 @@ def propagate_orbit(bodies, t0, tf, h, integrator):
     states[0] = pack_state(bodies)
     t = t0
     
-    # Move initial state to GPU for faster computation
-    state_gpu = torch.from_numpy(states[0]).to(device).float()
-    masses_gpu = torch.from_numpy(masses).to(device).float()
-    
-    print(f"Starting propagation with {T} steps on {device}...")
-    for k in range(1, T):
-        # Convert GPU tensor back to numpy for integrator
-        state_np = state_gpu.cpu().numpy()
-        
-        # Compute new state
-        state_new_np = integrator(state_np, t, masses, h, f)
-        
-        # Move back to GPU
-        state_gpu = torch.from_numpy(state_new_np).to(device).float()
-        states[k] = state_new_np
-        t += h
-        
-        if (k + 1) % max(1, T // 10) == 0:
-            print(f"  Progress: {k+1}/{T} steps completed")
+    # Progress bar for this integrator with fixed position
+    with tqdm(total=T-1, desc=f"{integrator_name}", unit=" steps", leave=True, position=position, ncols=80) as pbar:
+        for k in range(1, T):
+            # Compute new state
+            state_new_np = integrator(states[k-1], t, masses, h, f)
+            states[k] = state_new_np
+            t += h
+            pbar.update(1)
 
     unpack_traj(states, bodies)
     return states
 
 def run_integration(args):
     """Worker function for parallel integration"""
-    bodies, t0, tf, h, integrator_func, integrator_name = args
-    print(f"Starting {integrator_name}...")
+    bodies, t0, tf, h, integrator_func, integrator_name, position = args
     bodies_copy = copy.deepcopy(bodies)
-    states = propagate_orbit(bodies_copy, t0, tf, h, integrator_func)
-    print(f"Finished {integrator_name}")
+    states = propagate_orbit(bodies_copy, t0, tf, h, integrator_func, integrator_name, position)
     return (integrator_name, states)
 
 def plot_orbit_3d(states, label, save_path=None):
@@ -228,13 +186,6 @@ def plot_orbit_3d(states, label, save_path=None):
 
 
 if __name__ == "__main__":
-    # Set multiprocessing start method to 'spawn' for CUDA compatibility
-    try:
-        multiprocessing_context = torch.multiprocessing.get_context('spawn')
-    except:
-        from multiprocessing import get_context
-        multiprocessing_context = get_context('spawn')
-    
     # Create results directory
     results_dir = Path(__file__).parent / "results"
     results_dir.mkdir(exist_ok=True)
@@ -242,21 +193,23 @@ if __name__ == "__main__":
 
     bodies = [SUN, JUP, SAT, URA, NEP, PLU]
     t0 = 0.0
-    tf = 365250 * 100  # 100000 years in days
-    h = 1.0  # 1 day step
+    #tf = 365250  # 100000 years in days
+    tf = 36525 * 100
+    h = 10.0  # 1 day step
 
-    # Prepare tasks for parallel execution
+    # Prepare tasks for parallel execution with position indices
     integrators = [
-        (copy.deepcopy(bodies), t0, tf, h, explicite_euler, "Explicit Euler"),
-        (copy.deepcopy(bodies), t0, tf, h, midpoint_scheme, "Midpoint Scheme"),
-        (copy.deepcopy(bodies), t0, tf, h, runge_kutta_4, "Runge Kutta-4"),
-        (copy.deepcopy(bodies), t0, tf, h, symplectic_euler, "Symplectic Euler"),
-        (copy.deepcopy(bodies), t0, tf, h, stormer_verlet, "Stormer-Verlet"),
+        (copy.deepcopy(bodies), t0, tf, h, explicite_euler, "Explicit Euler", 0),
+        (copy.deepcopy(bodies), t0, tf, h, midpoint_scheme, "Midpoint Scheme", 1),
+        (copy.deepcopy(bodies), t0, tf, h, runge_kutta_4, "Runge Kutta-4", 2),
+        (copy.deepcopy(bodies), t0, tf, h, symplectic_euler, "Symplectic Euler", 3),
+        (copy.deepcopy(bodies), t0, tf, h, stormer_verlet, "Stormer-Verlet", 4),
     ]
 
-    # Run integrations in parallel with spawn context for CUDA
-    with multiprocessing_context.Pool() as pool:
-        results = pool.map(run_integration, integrators)
+    # Run integrations in parallel using multiprocessing
+    print(f"\nRunning {len(integrators)} integrations in parallel:\n")
+    with Pool() as pool:
+        results = list(pool.imap_unordered(run_integration, integrators))
 
     # Unpack results
     results_dict = {name: states for name, states in results}
@@ -267,37 +220,54 @@ if __name__ == "__main__":
     states_str = results_dict["Stormer-Verlet"]
 
     # Save trajectory data as numpy files for later 3D visualization
-    np.save(results_dir / "states_explicit_euler.npy", states_exp)
-    np.save(results_dir / "states_midpoint_scheme.npy", states_mid)
-    np.save(results_dir / "states_rk4.npy", states_rk4)
-    np.save(results_dir / "states_symplectic_euler.npy", states_sym)
-    np.save(results_dir / "states_stormer_verlet.npy", states_str)
-    print("Trajectory data saved as .npy files")
+    print("\nSaving trajectory data...")
+    with tqdm(total=5, desc="Saving .npy files", unit=" files") as pbar:
+        np.save(results_dir / "states_explicit_euler.npy", states_exp)
+        pbar.update(1)
+        np.save(results_dir / "states_midpoint_scheme.npy", states_mid)
+        pbar.update(1)
+        np.save(results_dir / "states_rk4.npy", states_rk4)
+        pbar.update(1)
+        np.save(results_dir / "states_symplectic_euler.npy", states_sym)
+        pbar.update(1)
+        np.save(results_dir / "states_stormer_verlet.npy", states_str)
+        pbar.update(1)
 
     # Plot and save 3D orbit visualizations
+    print("\nGenerating 3D orbit visualizations...")
     plot_orbit_3d(states_exp, "Explicit Euler", results_dir / "orbit_explicit_euler.png")
+
     plot_orbit_3d(states_mid, "Midpoint Scheme", results_dir / "orbit_midpoint_scheme.png")
     plot_orbit_3d(states_rk4, "Runge Kutta-4", results_dir / "orbit_rk4.png")
     plot_orbit_3d(states_sym, "Symplectic Euler", results_dir / "orbit_symplectic_euler.png")
     plot_orbit_3d(states_str, "Stormer-Verlet", results_dir / "orbit_stormer_verlet.png")
 
-    masses = np.array([b.mass for b in bodies], dtype=float)
+    masses = np.array([b.mass for b in bodies], dtype=np.float32)
     
-    # Vectorized energy computation
-    energies_exp = np.array([hamiltonian(states_exp[i], masses) for i in range(len(states_exp))])
-    energies_sym = np.array([hamiltonian(states_sym[i], masses) for i in range(len(states_sym))])
-    energies_str = np.array([hamiltonian(states_str[i], masses) for i in range(len(states_str))])
-    energies_rk4 = np.array([hamiltonian(states_rk4[i], masses) for i in range(len(states_rk4))])
+    # Vectorized energy computation with progress bar
+    print("\nComputing energy for all trajectories...")
+    energies_exp = np.array([hamiltonian(states_exp[i], masses) for i in tqdm(range(len(states_exp)), desc="Explicit Euler energy")])
+    energies_sym = np.array([hamiltonian(states_sym[i], masses) for i in tqdm(range(len(states_sym)), desc="Symplectic Euler energy")])
+    energies_str = np.array([hamiltonian(states_str[i], masses) for i in tqdm(range(len(states_str)), desc="Stormer-Verlet energy")])
+    energies_rk4 = np.array([hamiltonian(states_rk4[i], masses) for i in tqdm(range(len(states_rk4)), desc="RK4 energy")])
     
     # Save energy data
-    np.save(results_dir / "energies_explicit_euler.npy", energies_exp)
-    np.save(results_dir / "energies_symplectic_euler.npy", energies_sym)
-    np.save(results_dir / "energies_stormer_verlet.npy", energies_str)
-    np.save(results_dir / "energies_rk4.npy", energies_rk4)
+    print("\nSaving energy data...")
+    with tqdm(total=4, desc="Energy files", unit=" files") as pbar:
+        np.save(results_dir / "energies_explicit_euler.npy", energies_exp)
+        pbar.update(1)
+        np.save(results_dir / "energies_symplectic_euler.npy", energies_sym)
+        pbar.update(1)
+        np.save(results_dir / "energies_stormer_verlet.npy", energies_str)
+        pbar.update(1)
+        np.save(results_dir / "energies_rk4.npy", energies_rk4)
+        pbar.update(1)
     
     # Plot and save energy comparison
+    print("\nGenerating energy comparison plot...")
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.plot(energies_exp, label="Explicit Euler", alpha=0.7)
+
     ax.plot(energies_str, label="Stormer Verlet", alpha=0.7)
     ax.plot(energies_rk4, label="RK4", alpha=0.7)
     ax.set_xlabel("Time step", fontsize=12)
