@@ -58,24 +58,22 @@ def acc_j2(r):
 
 
 def hamiltonian(state, masses):
-    r = state[:, :3]         # (N,3)
-    v = state[:, 3:]         # (N,3)
-    N = len(masses)                             
-    a = np.zeros((N,3)) 
-    energy = 0
+    r = state[:, :3]  # (N,3)
+    v = state[:, 3:]  # (N,3)
+    N = len(masses)
 
+    masses = masses.astype(np.float32)
+
+    # Kinetic energy: sum(0.5 * m * v^2)
+    v_squared = np.sum(v * v, axis=1)  # (N,)
+    Ek = 0.5 * np.dot(masses, v_squared)
+
+    # Potential energy: -G * sum_{i<j} m_i m_j / r_ij
+    Ep = 0.0
     for i in range(N):
-        Ek = 0.0
-        Ek += 0.5 * masses[i] * float(np.dot(v[i, :], v[i, :]))
+        for j in range(i + 1, N):
+            rij = r[j] - r[i]
+            r_ij = np.sqrt(np.dot(rij, rij))
+            Ep -= G * masses[i] * masses[j] / r_ij
 
-        # Potential: -G * sum_{i<j} m_i m_j / |q_i - q_j|
-        Ep = 0.0
-        for i in range(N):
-            for j in range(N):
-                if i == j: 
-                    continue
-                rij = r[j] - r[i]
-                a[i] += G * masses[j] * rij / (np.dot(rij, rij)**1.5)
-        energy = Ek + Ep
-
-    return energy
+    return Ek + Ep

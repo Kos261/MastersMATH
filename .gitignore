@@ -1,6 +1,7 @@
 __pycache__/
 cache
-
+data
+assets
 *.egg-info
 .vscode
 .idea

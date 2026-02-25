@@ -1,5 +1,13 @@
 import numpy as np
 from physics import acc
+from scipy.integrate import solve_ivp, OdeSolver
+
+class MySolver(OdeSolver):
+    def __init__(self, **kwargs):
+        super(MySolver, self).__init__(**kwargs)
+
+
+
 
 def runge_kutta_4(state, t, h, f):
     k1 = f(t, state)

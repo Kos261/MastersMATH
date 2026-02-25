@@ -73,7 +73,6 @@ def unpack_traj(states, bodies):
     for i, b in enumerate(bodies):
         b.pos_traj = states[:, i, :3]
         b.vel_traj = states[:, i, 3:]
-
          # (N,6)
 
 def explicite_euler(state, t, masses, h, f):
@@ -136,7 +135,7 @@ def runge_kutta_4(state, t, masses, h, f):
 
 
 def propagate_orbit(bodies, t0, tf, h, integrator, integrator_name="Integration", position=0):
-    T = int((tf - t0)//h) + 1
+    T = int((tf - t0) // h) + 1
     N = len(bodies)
     masses = np.array([b.mass for b in bodies], dtype=np.float32)
     states = np.zeros((T, N, 6), dtype=np.float32)
@@ -163,26 +162,46 @@ def run_integration(args):
     return (integrator_name, states)
 
 def plot_orbit_3d(states, label, save_path=None):
-        fig = plt.figure(figsize=(12, 12))
-        ax = fig.add_subplot(111, projection='3d')
-        step=10
-        for i in range(6):
-            ax.plot(states[::step, i, 0], states[::step, i, 1], states[::step, i, 2], linewidth=1.5)
+    fig = plt.figure(figsize=(12, 12))
+    ax = fig.add_subplot(111, projection='3d')
+    step=10
+    for i in range(6):
+        ax.plot(states[::step, i, 0], states[::step, i, 1], states[::step, i, 2], linewidth=1.5)
 
-        ax.set_xlabel('X [AU]', fontsize=10)
-        ax.set_ylabel('Y [AU]', fontsize=10)
-        ax.set_zlabel('Z [AU]', fontsize=10)
-        ax.set_title('Solar system', fontweight='bold')
+    ax.set_xlabel('X [AU]', fontsize=10)
+    ax.set_ylabel('Y [AU]', fontsize=10)
+    ax.set_zlabel('Z [AU]', fontsize=10)
+    ax.set_title('Solar system', fontweight='bold')
 
-        # ax.legend(loc='upper right', fontsize=8)
-        ax.grid(True, linestyle=':', alpha=0.5)
-        plt.title(label)
-        plt.tight_layout()
-        
-        if save_path:
-            plt.savefig(save_path, dpi=150, bbox_inches='tight')
-            print(f"Saved: {save_path}")
-        plt.show()
+    ax.legend(loc='upper right', fontsize=8)
+    ax.grid(True, linestyle=':', alpha=0.5)
+    plt.title(label)
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Saved: {save_path}")
+    plt.show()
+
+def plot_energy(results_dir, energies_sym, energies_mid, energies_str, energies_rk4):
+    print("\nGenerating energy comparison plot...")
+    fig, ax = plt.subplots(figsize=(12, 6))
+    # ax.plot(energies_exp, label="Explicit Euler", alpha=0.7)
+    ax.plot(energies_sym, label="Symplectic Euler", alpha=0.7)
+    ax.plot(energies_mid, label="Midpoint scheme", alpha=0.7)
+    ax.plot(energies_str, label="Stormer Verlet", alpha=0.7)
+    ax.plot(energies_rk4, label="RK4", alpha=0.7)
+
+    ax.set_xlabel("Time step", fontsize=12)
+    ax.set_ylabel("Total Energy", fontsize=12)
+    ax.set_title("Energy Conservation Comparison", fontweight='bold', fontsize=14)
+    ax.legend(fontsize=11)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(results_dir / "energy_comparison.png", dpi=150, bbox_inches='tight')
+    print(f"Saved: {results_dir / 'energy_comparison.png'}")
+    plt.show()
+    print(f"\nAll results saved to: {results_dir}")
 
 
 if __name__ == "__main__":
@@ -192,14 +211,17 @@ if __name__ == "__main__":
     print(f"Results will be saved to: {results_dir}")
 
     bodies = [SUN, JUP, SAT, URA, NEP, PLU]
+    masses = np.array([b.mass for b in bodies], dtype=np.float32)
+
     t0 = 0.0
     #tf = 365250  # 100000 years in days
-    tf = 36525 * 100
+    tf = 36525
+    # tf = 100
     h = 10.0  # 1 day step
 
     # Prepare tasks for parallel execution with position indices
     integrators = [
-        (copy.deepcopy(bodies), t0, tf, h, explicite_euler, "Explicit Euler", 0),
+        # (copy.deepcopy(bodies), t0, tf, h, explicite_euler, "Explicit Euler", 0),
         (copy.deepcopy(bodies), t0, tf, h, midpoint_scheme, "Midpoint Scheme", 1),
         (copy.deepcopy(bodies), t0, tf, h, runge_kutta_4, "Runge Kutta-4", 2),
         (copy.deepcopy(bodies), t0, tf, h, symplectic_euler, "Symplectic Euler", 3),
@@ -213,7 +235,7 @@ if __name__ == "__main__":
 
     # Unpack results
     results_dict = {name: states for name, states in results}
-    states_exp = results_dict["Explicit Euler"]
+    # states_exp = results_dict["Explicit Euler"]
     states_mid = results_dict["Midpoint Scheme"]
     states_rk4 = results_dict["Runge Kutta-4"]
     states_sym = results_dict["Symplectic Euler"]
@@ -222,8 +244,8 @@ if __name__ == "__main__":
     # Save trajectory data as numpy files for later 3D visualization
     print("\nSaving trajectory data...")
     with tqdm(total=5, desc="Saving .npy files", unit=" files") as pbar:
-        np.save(results_dir / "states_explicit_euler.npy", states_exp)
-        pbar.update(1)
+        # np.save(results_dir / "states_explicit_euler.npy", states_exp)
+        # pbar.update(1)
         np.save(results_dir / "states_midpoint_scheme.npy", states_mid)
         pbar.update(1)
         np.save(results_dir / "states_rk4.npy", states_rk4)
@@ -234,50 +256,37 @@ if __name__ == "__main__":
         pbar.update(1)
 
     # Plot and save 3D orbit visualizations
-    print("\nGenerating 3D orbit visualizations...")
-    plot_orbit_3d(states_exp, "Explicit Euler", results_dir / "orbit_explicit_euler.png")
+    # print("\nGenerating 3D orbit visualizations...")
+    # plot_orbit_3d(states_exp, "Explicit Euler", results_dir / "orbit_explicit_euler.png")
+    #
+    # plot_orbit_3d(states_mid, "Midpoint Scheme", results_dir / "orbit_midpoint_scheme.png")
+    # plot_orbit_3d(states_rk4, "Runge Kutta-4", results_dir / "orbit_rk4.png")
+    # plot_orbit_3d(states_sym, "Symplectic Euler", results_dir / "orbit_symplectic_euler.png")
+    # plot_orbit_3d(states_str, "Stormer-Verlet", results_dir / "orbit_stormer_verlet.png")
 
-    plot_orbit_3d(states_mid, "Midpoint Scheme", results_dir / "orbit_midpoint_scheme.png")
-    plot_orbit_3d(states_rk4, "Runge Kutta-4", results_dir / "orbit_rk4.png")
-    plot_orbit_3d(states_sym, "Symplectic Euler", results_dir / "orbit_symplectic_euler.png")
-    plot_orbit_3d(states_str, "Stormer-Verlet", results_dir / "orbit_stormer_verlet.png")
 
-    masses = np.array([b.mass for b in bodies], dtype=np.float32)
-    
     # Vectorized energy computation with progress bar
     print("\nComputing energy for all trajectories...")
-    energies_exp = np.array([hamiltonian(states_exp[i], masses) for i in tqdm(range(len(states_exp)), desc="Explicit Euler energy")])
+    # energies_exp = np.array([hamiltonian(states_exp[i], masses) for i in tqdm(range(len(states_exp)), desc="Explicit Euler energy")])
     energies_sym = np.array([hamiltonian(states_sym[i], masses) for i in tqdm(range(len(states_sym)), desc="Symplectic Euler energy")])
     energies_str = np.array([hamiltonian(states_str[i], masses) for i in tqdm(range(len(states_str)), desc="Stormer-Verlet energy")])
     energies_rk4 = np.array([hamiltonian(states_rk4[i], masses) for i in tqdm(range(len(states_rk4)), desc="RK4 energy")])
-    
+    energies_mid = np.array([hamiltonian(states_mid[i], masses) for i in tqdm(range(len(states_mid)), desc="Midpoint energy")])
+
     # Save energy data
     print("\nSaving energy data...")
-    with tqdm(total=4, desc="Energy files", unit=" files") as pbar:
-        np.save(results_dir / "energies_explicit_euler.npy", energies_exp)
-        pbar.update(1)
+    with tqdm(total=3, desc="Energy files", unit=" files") as pbar:
+        # np.save(results_dir / "energies_explicit_euler.npy", energies_exp)
+        # pbar.update(1)
         np.save(results_dir / "energies_symplectic_euler.npy", energies_sym)
         pbar.update(1)
         np.save(results_dir / "energies_stormer_verlet.npy", energies_str)
         pbar.update(1)
         np.save(results_dir / "energies_rk4.npy", energies_rk4)
         pbar.update(1)
+        np.save(results_dir / "energies_mid.npy", energies_mid)
+        pbar.update(1)
     
     # Plot and save energy comparison
-    print("\nGenerating energy comparison plot...")
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(energies_exp, label="Explicit Euler", alpha=0.7)
-
-    ax.plot(energies_str, label="Stormer Verlet", alpha=0.7)
-    ax.plot(energies_rk4, label="RK4", alpha=0.7)
-    ax.set_xlabel("Time step", fontsize=12)
-    ax.set_ylabel("Total Energy", fontsize=12)
-    ax.set_title("Energy Conservation Comparison", fontweight='bold', fontsize=14)
-    ax.legend(fontsize=11)
-    ax.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(results_dir / "energy_comparison.png", dpi=150, bbox_inches='tight')
-    print(f"Saved: {results_dir / 'energy_comparison.png'}")
-    plt.show()
+    plot_energy(results_dir, energies_sym, energies_mid, energies_str, energies_rk4)
     
-    print(f"\nAll results saved to: {results_dir}")

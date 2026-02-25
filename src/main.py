@@ -52,11 +52,18 @@ def load_cached_orbits(filename):
 
 if __name__ == "__main__":
     t0 = 0
-    tf = 60*60*12  #seconds
+    tf = 60*60*24*10_000  #seconds
     h = 10     
     m = 100 #kg
     sat_separation = 1000 # km
     orbit = GEO
+
+    # sol = solve_ivp(fun, [t_start, t_end], y0,
+    #                 method='DOP853',  # Bardzo wysoki rząd, świetny do orbit
+    #                 rtol=1e-13,  # Wysoka precyzja względna
+    #                 atol=1e-13)  # Wysoka precyzja bezwzględna
+
+
     ''' 
     (T, num_sat, 6)   time, 4 satellites, x y z vx vy vz 
     '''

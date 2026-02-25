@@ -40,9 +40,9 @@ def load_planets():
 
 
 def load_mars_2020():
-    sp.furnsh('..\data\de438s.bsp')  # Planety
-    sp.furnsh('..\data\mar097.bsp')  # Układ Marsa
-    sp.furnsh('..\data\m2020_cruise_od138_v1.bsp')
+    sp.furnsh(r'..\data\de438s.bsp')  # Planety
+    sp.furnsh(r'..\data\mar097.bsp')  # Układ Marsa
+    sp.furnsh(r'..\data\m2020_cruise_od138_v1.bsp')
 
     start   = sp.str2et("2020-10-02 00:00:00")
     end     = sp.str2et("2020-12-15 00:00:00")
@@ -66,9 +66,9 @@ if __name__ == "__main__":
         # load_test()
         # positions = load_planets()
         # states = load_mars_2020()
-        sp.furnsh('..\data\de438s.bsp')  # Planety
-        sp.furnsh('..\data\mar097.bsp')  # Układ Marsa
-        sp.furnsh('..\data\m2020_cruise_od138_v1.bsp')
+        sp.furnsh(r'..\data\de438s.bsp')  # Planety
+        sp.furnsh(r'..\data\mar097.bsp')  # Układ Marsa
+        sp.furnsh(r'..\data\m2020_cruise_od138_v1.bsp')
         inspect_kernels()
 
 
