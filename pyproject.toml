@@ -18,6 +18,7 @@ dependencies = [
     "spiceypy>=6.0.0",
     "tqdm>=4.67.1",
     "notebook>=7.5.1",
+    "pyqt5>=5.15.11",
 ]
 
 [build-system]

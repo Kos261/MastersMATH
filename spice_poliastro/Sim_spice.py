@@ -2,7 +2,7 @@ import numpy as np
 from itertools import combinations
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from simulation_combined.initial_conditions import *
+from src.initial_conditions import *
 
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
