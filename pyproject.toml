@@ -18,7 +18,7 @@ dependencies = [
     "spiceypy>=6.0.0",
     "tqdm>=4.67.1",
     "notebook>=7.5.1",
-    "pyqt5>=5.15.11",
+    "pyqt5==5.15.11",
 ]
 
 [build-system]
@@ -28,3 +28,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.uv]
+required-environments = [
+    "sys_platform == 'win32' and platform_machine == 'AMD64'"
+]
