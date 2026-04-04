@@ -65,8 +65,11 @@ def init_cond(r0, v0, t0, tf, h):
     return states
 
 def plot_err(t, all_states):
-    real_x, real_v= all_states[0][0], all_states[0][1]
-    names = ["REAL SOL", "RK4", "MID", "STORM", "SYM"]
+    real_x = all_states[0][:, 0]
+    real_v = all_states[0][:, 1]
+    # print(real_x)
+    # print(real_x.shape)
+    names = ["REAL SOL", "RK4",  "STORM", "SYM"]
 
     for name, states in zip(names, all_states):
         if name == "REAL SOL":
@@ -83,7 +86,7 @@ def plot_err(t, all_states):
     plt.show()
 
 def plot_states(t, all_states):
-    names = ["REAL SOL", "RK4", "MID", "STORM", "SYM"]
+    names = ["REAL SOL", "RK4", "STORM", "SYM"]
     fig, axs = plt.subplots(2)
 
     for name, states in zip(names, all_states[1:]):
@@ -91,12 +94,13 @@ def plot_states(t, all_states):
             axs[0].plot(t, states[:,0], "--", color='red', alpha=0.5, label="Real solution")
             axs[1].plot(t, states[:,1], "--", color='red', alpha=0.5, label="Real solution")
         else:
-            axs[0].plot(t, states[:,0])
-            axs[1].plot(t, states[:,1], 'tab:orange')
+            axs[0].plot(t, states[:,0], label=name)
+            axs[1].plot(t, states[:,1], label=name)
 
         axs[0].set_title('Position')
         axs[1].set_title('Velocity')
 
+    plt.grid(True, alpha=0.3)
     plt.legend()
     plt.show()
 
@@ -107,7 +111,7 @@ def plot_energy(t, all_states):
     real_E_k = 0.5 * m * real_v ** 2
     real_H = real_E_k + real_E_p
 
-    names = ["RK4", "MID", "STORM", "SYM"]
+    names = ["RK4", "STORM", "SYM"]
     fig, axs = plt.subplots(2, 1, figsize=(10, 8))
 
     axs[0].plot(t, real_H, "--", color='black', alpha=0.8, linewidth=2, label="Analytical Energy")
@@ -146,15 +150,15 @@ def main():
     states = init_cond(x0, v0, t0=t0, tf=tf, h=h)
 
     t, states_rk4 = integrate(states.copy(), t0=t0, tf=tf, h=h, f=f, propagator=runge_kutta_4)
-    _, states_mid = integrate(states.copy(), t0=t0, tf=tf, h=h, f=f, propagator=midpoint_scheme)
+    # _, states_mid = integrate(states.copy(), t0=t0, tf=tf, h=h, f=f, propagator=midpoint_scheme)
     _, states_stor = integrate(states.copy(), t0=t0, tf=tf, h=h, f=f, propagator=stormer_verlet)
     _, states_sym = integrate(states.copy(), t0=t0, tf=tf, h=h, f=f, propagator=symplectic_euler)
 
     real_sol = np.array([A * np.sin(omega * t + phi), A * omega * np.cos(omega * t + phi)]).T
 
-    all_states = [real_sol, states_rk4, states_mid, states_stor, states_sym]
+    all_states = [real_sol, states_rk4, states_stor, states_sym]
 
-    # plot_err(t, all_states)
+    plot_err(t, all_states)
     plot_states(t, all_states)
     plot_energy(t, all_states)
 

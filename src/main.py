@@ -31,7 +31,7 @@ def propagate_orbits(state0, t0, tf, dt, eq_of_motion, propagator='rk4', masses=
     # else:
     print(f"[compute] computing orbit")
     times, states = propagate_orbit_rk4(state0, t0, tf, dt, eq_of_motion)
-    np.savez(path, times=times, states=states)
+    # np.savez(path, times=times, states=states)
 
     return times, states
 
@@ -52,8 +52,8 @@ def load_cached_orbits(filename):
 
 if __name__ == "__main__":
     t0 = 0
-    tf = 60*60*24*10_000  #seconds
-    h = 10     
+    tf = 60*60*24  #seconds
+    h = 1
     m = 100 #kg
     sat_separation = 1000 # km
     orbit = GEO
@@ -68,8 +68,8 @@ if __name__ == "__main__":
     (T, num_sat, 6)   time, 4 satellites, x y z vx vy vz 
     '''
     # states = initial_formation_1(t0, tf, h, orbit=orbit)
-    # states = initial_formation_4(t0, tf, h, sat_separation,orbit=orbit)
-    states = initial_formation_explosion(t0, tf, h, orbit=orbit)
+    states = initial_formation_4(t0, tf, h, sat_separation,orbit=orbit)
+    # states = initial_formation_explosion(t0, tf, h, orbit=orbit)
     times, states = propagate_orbit_rk4(states=states, t0=t0, tf=tf, h=h, f=f)
 
     plotter = Plotter()

@@ -259,10 +259,10 @@ if __name__ == "__main__":
     # print("\nGenerating 3D orbit visualizations...")
     # plot_orbit_3d(states_exp, "Explicit Euler", results_dir / "orbit_explicit_euler.png")
     #
-    # plot_orbit_3d(states_mid, "Midpoint Scheme", results_dir / "orbit_midpoint_scheme.png")
-    # plot_orbit_3d(states_rk4, "Runge Kutta-4", results_dir / "orbit_rk4.png")
-    # plot_orbit_3d(states_sym, "Symplectic Euler", results_dir / "orbit_symplectic_euler.png")
-    # plot_orbit_3d(states_str, "Stormer-Verlet", results_dir / "orbit_stormer_verlet.png")
+    plot_orbit_3d(states_mid, "Midpoint Scheme", results_dir / "orbit_midpoint_scheme.png")
+    plot_orbit_3d(states_rk4, "Runge Kutta-4", results_dir / "orbit_rk4.png")
+    plot_orbit_3d(states_sym, "Symplectic Euler", results_dir / "orbit_symplectic_euler.png")
+    plot_orbit_3d(states_str, "Stormer-Verlet", results_dir / "orbit_stormer_verlet.png")
 
 
     # Vectorized energy computation with progress bar
