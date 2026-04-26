@@ -31,10 +31,10 @@ def load_planets():
         states = [sp.spkezr(planet, t, 'J2000', 'NONE', 'SUN')[0] for t in times]
         positions[planet] = np.array(states) # Wynik: tablica (1000, 6)
 
-    print("EARTHs coordinates w/r to SUN at time ?:")
-    print(f"x = {positions["EARTH"][0][0]}\ny = {positions["EARTH"][0][1]}\nz = {positions["EARTH"][0][2]}")
-    print("EARTHs velocity:")
-    print(f"vx = {positions["EARTH"][0][3]}\nvy = {positions["EARTH"][0][4]}\nvz = {positions["EARTH"][0][5]}")
+    # print("EARTHs coordinates w/r to SUN at time ?:")
+    # print(f"x = {positions["EARTH"][0][0]}\ny = {positions["EARTH"][0][1]}\nz = {positions["EARTH"][0][2]}")
+    # print("EARTHs velocity:")
+    # print(f"vx = {positions["EARTH"][0][3]}\nvy = {positions["EARTH"][0][4]}\nvz = {positions["EARTH"][0][5]}")
 
     return positions
 
