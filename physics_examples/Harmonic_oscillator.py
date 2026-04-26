@@ -64,35 +64,42 @@ def init_cond(r0, v0, t0, tf, h):
     states[0] = [r0, v0]
     return states
 
-def plot_err(t, all_states):
+def plot_err(t, all_states, **kwargs):
     real_x = all_states[0][:, 0]
     real_v = all_states[0][:, 1]
-    # print(real_x)
-    # print(real_x.shape)
+
     names = ["REAL SOL", "RK4",  "STORM", "SYM"]
 
     for name, states in zip(names, all_states):
         if name == "REAL SOL":
             continue
         else:
-            err = real_x - states[:, 0]
+            err = abs(real_x - states[:, 0])
             plt.plot(t, err, '-', label=name)
 
-    plt.title("Harmonic oscillator error")
+    h = kwargs.get('h', '?')
+    tf = kwargs.get('tf', '?')
+    if 'h' in kwargs and 'tf' in kwargs:
+        plt.title(f"Error \n(h = {h}, tf = {tf})")
+    else:
+        plt.title("Error")
+
     plt.xlabel("Time")
     plt.ylabel("Position error")
     plt.grid(True, alpha=0.3)
     plt.legend()
     plt.show()
 
-def plot_states(t, all_states):
+def plot_states(t, all_states, **kwargs):
     names = ["REAL SOL", "RK4", "STORM", "SYM"]
     fig, axs = plt.subplots(2)
 
-    for name, states in zip(names, all_states[1:]):
+    # for name, states in zip(names[1:], all_states[1:]):
+    for name, states in zip(names, all_states):
+
         if name == "REAL SOL":
-            axs[0].plot(t, states[:,0], "--", color='red', alpha=0.5, label="Real solution")
-            axs[1].plot(t, states[:,1], "--", color='red', alpha=0.5, label="Real solution")
+            axs[0].plot(t, states[:,0], "--", color='black', alpha=0.5, label="Real solution")
+            axs[1].plot(t, states[:,1], "--", color='black', alpha=0.5, label="Real solution")
         else:
             axs[0].plot(t, states[:,0], label=name)
             axs[1].plot(t, states[:,1], label=name)
@@ -100,8 +107,57 @@ def plot_states(t, all_states):
         axs[0].set_title('Position')
         axs[1].set_title('Velocity')
 
+    h = kwargs.get('h', '?')
+    tf = kwargs.get('tf', '?')
+    if 'h' in kwargs and 'tf' in kwargs:
+        axs[0].set_title(f"Positions \n(h = {h}, tf = {tf})")
+        axs[1].set_title(f"Velocities \n(h = {h}, tf = {tf})")
+    else:
+        axs[0].set_title(f"Positions")
+        axs[1].set_title(f"Velocities")
     plt.grid(True, alpha=0.3)
     plt.legend()
+    plt.show()
+
+def vfield(point):
+    # dx/dt = A x
+    x = point[0]
+    v = point[1]
+    new_x = v
+    new_y = -omega ** 2 * x
+    return [new_x, new_y]
+
+def plot_phase_portrait(t, all_states, **kwargs):
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+    names = ["REAL SOL", "RK4", "STORM", "SYM"]
+
+    for name, states in zip(names, all_states):
+        x = states[:, 0]
+        v = states[:, 1]
+        if name == "REAL SOL":
+            max_val = max(np.max(np.abs(x)), np.max(np.abs(v))) * 1.5
+            ax.plot(x, v, color='red', linewidth=2.5, label="Real Trajectory")
+        else:
+            ax.plot(x,v, label=name)
+
+    xs = np.linspace(-max_val, max_val, 20)
+    vs = np.linspace(-max_val, max_val, 20)
+    X, V = np.meshgrid(xs, vs)
+    dX, dV = vfield((X, V))
+    ax.quiver(X, V, dX, dV, color='gray', alpha=0.5, pivot='mid')
+
+    h = kwargs.get('h', '?')
+    tf = kwargs.get('tf', '?')
+    if 'h' in kwargs and 'tf' in kwargs:
+        ax.set_title(f"Phase Portrait of Harmonic Oscillator\n(h = {h}, tf = {tf})")
+    else:
+        ax.set_title("Phase Portrait of Harmonic Oscillator")
+    ax.set_xlabel("Position (x)")
+    ax.set_ylabel("Velocity (v)")
+    ax.grid(True, linestyle='--', alpha=0.4)
+    ax.legend()
+    ax.set_aspect('equal', 'box')
+
     plt.show()
 
 def plot_energy(t, all_states):
@@ -123,7 +179,7 @@ def plot_energy(t, all_states):
 
         axs[0].plot(t, H, '-', label=name)
 
-        err = real_H - H
+        err = abs(real_H - H)
         axs[1].plot(t, err, '-', label=name)
 
 
@@ -143,9 +199,12 @@ def plot_energy(t, all_states):
 
 def main():
     t0 = 0
-    tf = 200
-    h = 0.5
-    x0, v0 = 0, 1
+    # tf = 1000
+    # h = 0.5
+    tf, h = 100, 0.5
+
+    # x0, v0 = 0, 1
+    x0, v0 = 1, 0
     A = v0 / omega
     states = init_cond(x0, v0, t0=t0, tf=tf, h=h)
 
@@ -153,14 +212,15 @@ def main():
     # _, states_mid = integrate(states.copy(), t0=t0, tf=tf, h=h, f=f, propagator=midpoint_scheme)
     _, states_stor = integrate(states.copy(), t0=t0, tf=tf, h=h, f=f, propagator=stormer_verlet)
     _, states_sym = integrate(states.copy(), t0=t0, tf=tf, h=h, f=f, propagator=symplectic_euler)
-
-    real_sol = np.array([A * np.sin(omega * t + phi), A * omega * np.cos(omega * t + phi)]).T
+    real_x = x0 * np.cos(omega * t) + (v0 / omega) * np.sin(omega * t)
+    real_v = -x0 * omega * np.sin(omega * t) + v0 * np.cos(omega * t)
+    real_sol = np.array([real_x, real_v]).T
 
     all_states = [real_sol, states_rk4, states_stor, states_sym]
-
-    plot_err(t, all_states)
-    plot_states(t, all_states)
+    plot_err(t, all_states, h=h, tf=tf)
+    plot_states(t, all_states, h=h, tf=tf)
     plot_energy(t, all_states)
+    plot_phase_portrait(t, all_states, h=h, tf=tf)
 
 if __name__ == "__main__":
     main()

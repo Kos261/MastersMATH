@@ -9,3 +9,7 @@ assets
 assets
 kernels
 masters
+plots
+*.npy
+*.pdf
+*.png
