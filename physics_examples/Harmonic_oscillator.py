@@ -75,7 +75,7 @@ def plot_err(t, all_states, **kwargs):
             continue
         else:
             err = abs(real_x - states[:, 0])
-            plt.plot(t, err, '-', label=name)
+            plt.plot(t, err, '-', alpha=0.5, label=name)
 
     h = kwargs.get('h', '?')
     tf = kwargs.get('tf', '?')
@@ -98,11 +98,11 @@ def plot_states(t, all_states, **kwargs):
     for name, states in zip(names, all_states):
 
         if name == "REAL SOL":
-            axs[0].plot(t, states[:,0], "--", color='black', alpha=0.5, label="Real solution")
-            axs[1].plot(t, states[:,1], "--", color='black', alpha=0.5, label="Real solution")
+            axs[0].plot(t, states[:,0], "--", color='black', label="Real solution")
+            axs[1].plot(t, states[:,1], "--", color='black', label="Real solution")
         else:
-            axs[0].plot(t, states[:,0], label=name)
-            axs[1].plot(t, states[:,1], label=name)
+            axs[0].plot(t, states[:,0],alpha=0.5, label=name)
+            axs[1].plot(t, states[:,1],alpha=0.5, label=name)
 
         axs[0].set_title('Position')
         axs[1].set_title('Velocity')
@@ -138,7 +138,7 @@ def plot_phase_portrait(t, all_states, **kwargs):
             max_val = max(np.max(np.abs(x)), np.max(np.abs(v))) * 1.5
             ax.plot(x, v, color='red', linewidth=2.5, label="Real Trajectory")
         else:
-            ax.plot(x,v, label=name)
+            ax.plot(x,v, alpha=0.5, label=name)
 
     xs = np.linspace(-max_val, max_val, 20)
     vs = np.linspace(-max_val, max_val, 20)
@@ -160,7 +160,7 @@ def plot_phase_portrait(t, all_states, **kwargs):
 
     plt.show()
 
-def plot_energy(t, all_states):
+def plot_energy(t, all_states, **kwargs):
     real_x = all_states[0][:, 0]
     real_v = all_states[0][:, 1]
     real_E_p = 0.5 * k * real_x ** 2
@@ -170,25 +170,32 @@ def plot_energy(t, all_states):
     names = ["RK4", "STORM", "SYM"]
     fig, axs = plt.subplots(2, 1, figsize=(10, 8))
 
-    axs[0].plot(t, real_H, "--", color='black', alpha=0.8, linewidth=2, label="Analytical Energy")
+    axs[0].plot(t, real_H, "--", color='black', linewidth=2, label="Analytical Energy")
 
     for name, states in zip(names, all_states[1:]):
         E_p = 0.5 * k * states[:, 0] ** 2
         E_k = 0.5 * m * states[:, 1] ** 2
         H = E_k + E_p
 
-        axs[0].plot(t, H, '-', label=name)
+        axs[0].plot(t, H, '-', alpha=0.5, label=name)
 
         err = abs(real_H - H)
-        axs[1].plot(t, err, '-', label=name)
+        axs[1].plot(t, err, '-', alpha=0.5, label=name)
 
+    h = kwargs.get('h', '?')
+    tf = kwargs.get('tf', '?')
+    if 'h' in kwargs and 'tf' in kwargs:
+        axs[0].set_title(f"Hamiltonian (h = {h}, tf = {tf})")
+        axs[1].set_title(f'Energy Error (h = {h}, tf = {tf})')
+    else:
+        axs[0].set_title("Hamiltonian")
+        axs[1].set_title('Energy Error')
 
-    axs[0].set_title('Harmonic oscillator: Total Energy (Hamiltonian)')
     axs[0].set_ylabel('E_k + E_p')
     axs[0].grid(True, alpha=0.3)
     axs[0].legend()
 
-    axs[1].set_title('Energy Error (Analytical - Numerical)')
+    axs[1].set_title('Energy Error')
     axs[1].set_xlabel('Time')
     axs[1].set_ylabel('Error')
     axs[1].grid(True, alpha=0.3)
@@ -201,7 +208,7 @@ def main():
     t0 = 0
     # tf = 1000
     # h = 0.5
-    tf, h = 100, 0.5
+    tf, h = 10000, 0.5
 
     # x0, v0 = 0, 1
     x0, v0 = 1, 0
@@ -217,9 +224,9 @@ def main():
     real_sol = np.array([real_x, real_v]).T
 
     all_states = [real_sol, states_rk4, states_stor, states_sym]
-    plot_err(t, all_states, h=h, tf=tf)
-    plot_states(t, all_states, h=h, tf=tf)
-    plot_energy(t, all_states)
+    # plot_err(t, all_states, h=h, tf=tf)
+    # plot_states(t, all_states, h=h, tf=tf)
+    plot_energy(t, all_states, h=h, tf=tf)
     plot_phase_portrait(t, all_states, h=h, tf=tf)
 
 if __name__ == "__main__":
