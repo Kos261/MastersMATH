@@ -31,11 +31,6 @@ def load_planets():
         states = [sp.spkezr(planet, t, 'J2000', 'NONE', 'SUN')[0] for t in times]
         positions[planet] = np.array(states) # Wynik: tablica (1000, 6)
 
-    # print("EARTHs coordinates w/r to SUN at time ?:")
-    # print(f"x = {positions["EARTH"][0][0]}\ny = {positions["EARTH"][0][1]}\nz = {positions["EARTH"][0][2]}")
-    # print("EARTHs velocity:")
-    # print(f"vx = {positions["EARTH"][0][3]}\nvy = {positions["EARTH"][0][4]}\nvz = {positions["EARTH"][0][5]}")
-
     return positions
 
 def plot(positions, body1="EARTH", body2="MERCURY"):
@@ -68,14 +63,27 @@ def plot(positions, body1="EARTH", body2="MERCURY"):
 
     plt.show()
 
+def plot_planets(ephemerides):
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter([0], [0], [0], color='orange', label='SUN', s=100)
 
-def load_mars_2020():
-    sp.furnsh(r'..\data\de438s.bsp')  # Planety
-    sp.furnsh(r'..\data\mar097.bsp')  # Układ Marsa
-    sp.furnsh(r'..\data\m2020_cruise_od138_v1.bsp')
+    for planet, positions  in ephemerides.items():
+        x = ephemerides[planet][:, 0]
+        y = ephemerides[planet][:, 1]
+        z = ephemerides[planet][:, 2]
+        ax.plot(x, y, z, label=planet)
+        ax.scatter(x[0], y[0], z[0], marker='o')
 
-    start   = sp.str2et("2020-10-02 00:00:00")
-    end     = sp.str2et("2020-12-15 00:00:00")
+    ax.set_xlabel('X [km]')
+    ax.set_ylabel('Y [km]')
+    ax.set_zlabel('Z [km]')
+    ax.legend()
+    plt.title(f"All trajectories")
+    plt.show()
+
+
+
 
 
 def inspect_kernels():
@@ -91,17 +99,31 @@ def inspect_kernels():
         file, file_type, source, handle = sp.kdata(which, "spk")
         print(file)
 
+def inspect_kernel(kernel:str):
+    ids = sp.spkobj(kernel)
+    for id in ids:
+        try:
+            name = sp.bodc2n(id)
+            print(f"{id} -> {name}")
+        except:
+            print(f"{id} -> brak nazwy w kernelu nazw")
 
 if __name__ == "__main__":
     try:
         # load_test()
         positions = load_planets()
-        # print(positions)
-        # states = load_mars_2020()
+
+        print("EARTHs coordinates w/r to SUN at time ?:")
+        print(f"x = {positions["EARTH"][0][0]}\ny = {positions["EARTH"][0][1]}\nz = {positions["EARTH"][0][2]}")
+        print("EARTHs velocity:")
+        print(f"vx = {positions["EARTH"][0][3]}\nvy = {positions["EARTH"][0][4]}\nvz = {positions["EARTH"][0][5]}")
+
         # sp.furnsh(r'/home/konstanty/Pulpit/UW/MastersMATH/data/kernels.tm')  # Planety
+        # inspect_kernels()
 
-        inspect_kernels()
-
-        plot(positions)
+        # plot(positions)
+        plot_planets(positions)
     finally:
         sp.kclear()
+
+
