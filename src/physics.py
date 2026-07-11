@@ -2,38 +2,44 @@ import numpy as np
 from orbits import MU, G, RE, J2
 
 
-def f(t, state, masses=None, central_mass=None, J2_pert=False):
+def f(t, state, masses=None, central_mass=None, J2_pert=False, sun_idx=None):
     r = state[:, :3]
     v = state[:, 3:]
-    a = _acc_from_positions(r, masses, central_mass, J2_pert)
+    a = _acc_from_positions(r, v, masses, central_mass, J2_pert, sun_idx)
 
     derivative = np.hstack([v, a])
     return derivative
 
 def acc(state, masses=None, central_mass=None, J2_pert=False):
-    """API kompatybilne ze starymi solverami."""
     r = state[:, :3]
-    return _acc_from_positions(r, masses, central_mass, J2_pert)
+    v = state[:, 3:]
+    return _acc_from_positions(r, v, masses, central_mass, J2_pert)
 
-def _acc_from_positions(r, masses=None, central_mass=None, J2_pert=False):
+def _acc_from_positions(r, v, masses=None, central_mass=None, J2_pert=False, sun_idx=None):
     if masses is None:
         a = acc_central(r, central_mass)
         if J2_pert:
             a += acc_j2(r)
-        return a
     else:
-        return acc_nbody(r, masses)
+        a = acc_nbody(r, masses)
+        a += acc_relativistic(r, v, masses, sun_idx)
+    return a
 
-def acc_nbody(r, masses):                         # (N,3)
-    N = len(masses)                           #  N+1 bcs Earth 1st
-    a = np.zeros((N,3))                       # (N,3)
+def acc_nbody(r, mus):
+    '''
+    r: (N, 3) positions [km]
+    mus: (N,) gravitational parameters GM [km^3/s^2]
+    returns: (N,3) accelerations [km/s^2]
+    '''
+    N = len(mus)
+    a = np.zeros((N,3))
 
     for i in range(N):
         for j in range(N):
             if i == j: 
                 continue
             rij = r[j] - r[i]
-            a[i] += G * masses[j] * rij / (np.dot(rij, rij)**1.5)
+            a[i] += mus[j] * rij / (np.dot(rij, rij)**1.5)
     return a
 
 def acc_central(r, central_mass):
@@ -43,6 +49,30 @@ def acc_central(r, central_mass):
     mu = MU if central_mass is None else 6.67430e-20 * central_mass
     a = -mu * r / (rn ** 3)
     return a
+
+def acc_relativistic(r, v, mus, sun_idx):
+    c = 299792.458
+    N = r.shape[0]
+    a_rel = np.zeros((N, 3))
+    mu_sun = mus[sun_idx]
+    r_sun = r[sun_idx]
+    v_sun = v[sun_idx]
+
+    for i in range(N):
+        if i == sun_idx:
+            continue
+
+        dist = r[i] - r_sun
+        vrel = v[i] - v_sun
+        r_norm = np.linalg.norm(dist)
+        v_norm = np.linalg.norm(vrel)
+
+        bracket = (4 * mu_sun / r_norm - v_norm ** 2) * dist + 4 * np.dot(dist, vrel) * vrel
+        a_rel[i] = bracket * mu_sun / (c ** 2 * r_norm ** 3)
+
+    return a_rel
+
+
 
 def acc_j2(r):
     rn = np.linalg.norm(r, axis=1, keepdims=True)      # (N,1)
