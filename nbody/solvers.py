@@ -1,17 +1,14 @@
 import numpy as np
-from physics import acc
-from scipy.integrate import solve_ivp, OdeSolver
+from nbody.physics import acc
+from scipy.integrate import OdeSolver
 
 class MySolver(OdeSolver):
     def __init__(self, **kwargs):
         super(MySolver, self).__init__(**kwargs)
 
 
-
-
-def runge_kutta_4(state, t, h, f):
+def runge_kutta_4(state, t, h, f, masses=None):
     k1 = f(t, state)
-    #assert np.all(k1 == 0), "Divisor is zero"
     k2 = f(t + h / 2, state + h / 2 * k1)
     k3 = f(t + h / 2, state + h / 2 * k2)
     k4 = f(t + h, state + h * k3)
@@ -19,34 +16,33 @@ def runge_kutta_4(state, t, h, f):
     return state + (h / 6) * (k1 + 2 * k2 + 2 * k3 + k4)
 
 
-def explicite_euler(state, t, masses, h, f):
+def explicite_euler(state, t, h, f, masses, sun_idx=None):
     state_new = state + h * f(t, state, masses)
     return state_new
 
 
-def symplectic_euler(state, t, masses, h, f):
+def symplectic_euler(state, t, h, f, masses, sun_idx=None):
     r = state[:, :3]
     v = state[:, 3:]
-    a = acc(state, masses)
+    a = acc(state, masses, sun_idx=sun_idx)
     v_new = v + h * a
     r_new = r + h * v_new
 
     return np.hstack([r_new, v_new])
 
 
-
-def stormer_verlet(state, t, masses, h, f):
+def stormer_verlet(state, t, h, f, masses, sun_idx=None):
     r = state[:, :3]
     v = state[:, 3:]
-    a = acc(state, masses)
+    a = acc(state, masses, sun_idx=sun_idx)
     v_half = v + 0.5 * h * a
     r_new = r + h * v_half
     state_new = np.hstack([r_new, v])
-    a_new = acc(state_new, masses)
+    a_new = acc(state_new, masses, sun_idx=sun_idx)
     v_new = v_half + 0.5 * h * a_new
 
     return np.hstack([r_new, v_new])
 
 
-def midpoint_scheme(state, t, masses, h, f):    # f(x,t,m)
+def midpoint_scheme(state, t, h, f, masses, sun_idx=None):
     return state + h * f(t + h / 2, state + h/2 * f(t, state, masses), masses)

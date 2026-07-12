@@ -10,10 +10,10 @@ def f(t, state, masses=None, central_mass=None, J2_pert=False, sun_idx=None):
     derivative = np.hstack([v, a])
     return derivative
 
-def acc(state, masses=None, central_mass=None, J2_pert=False):
+def acc(state, masses=None, central_mass=None, J2_pert=False, sun_idx=None):
     r = state[:, :3]
     v = state[:, 3:]
-    return _acc_from_positions(r, v, masses, central_mass, J2_pert)
+    return _acc_from_positions(r, v, masses, central_mass, J2_pert, sun_idx)
 
 def _acc_from_positions(r, v, masses=None, central_mass=None, J2_pert=False, sun_idx=None):
     if masses is None:

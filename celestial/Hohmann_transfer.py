@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from src.data_loader import plot, load_planets
+from Spice_Lessons.data_loader import load_planets
 
 MU_SUN = 1.32712440018e11
 

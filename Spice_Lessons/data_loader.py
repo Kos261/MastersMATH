@@ -14,8 +14,8 @@ def load_test():
 
 
 def load_planets():
-    sp.furnsh(r"/home/konstanty/Pulpit/MastersMATH/data/de442s.bsp")
-    sp.furnsh(r'/home/konstanty/Pulpit/MastersMATH/data/naif0012.tls')
+    sp.furnsh(r"/data/de442s.bsp")
+    sp.furnsh(r'/data/naif0012.tls')
     et = sp.str2et('2025-12-04 12:00:00')
 
     positions = {}
