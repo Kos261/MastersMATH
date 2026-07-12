@@ -7,7 +7,7 @@ class MySolver(OdeSolver):
         super(MySolver, self).__init__(**kwargs)
 
 
-def runge_kutta_4(state, t, h, f, masses=None):
+def runge_kutta_4(state, t, h, f, masses=None, sun_idx=None):
     k1 = f(t, state)
     k2 = f(t + h / 2, state + h / 2 * k1)
     k3 = f(t + h / 2, state + h / 2 * k2)

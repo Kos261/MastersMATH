@@ -25,21 +25,32 @@ def _acc_from_positions(r, v, masses=None, central_mass=None, J2_pert=False, sun
         a += acc_relativistic(r, v, masses, sun_idx)
     return a
 
-def acc_nbody(r, mus):
-    '''
-    r: (N, 3) positions [km]
-    mus: (N,) gravitational parameters GM [km^3/s^2]
-    returns: (N,3) accelerations [km/s^2]
-    '''
-    N = len(mus)
-    a = np.zeros((N,3))
+# def acc_nbody(r, mus):
+#     '''
+#     r: (N, 3) positions [km]
+#     mus: (N,) gravitational parameters GM [km^3/s^2]
+#     returns: (N,3) accelerations [km/s^2]
+#     '''
+#     N = len(mus)
+#     a = np.zeros((N,3))
+#
+#     for i in range(N):
+#         for j in range(N):
+#             if i == j:
+#                 continue
+#             rij = r[j] - r[i]
+#             a[i] += mus[j] * rij / (np.dot(rij, rij)**1.5)
+#     return a
 
-    for i in range(N):
-        for j in range(N):
-            if i == j: 
-                continue
-            rij = r[j] - r[i]
-            a[i] += mus[j] * rij / (np.dot(rij, rij)**1.5)
+def acc_nbody(r, mus):
+    """
+    Zwektoryzowana wersja - bez pętli w Pythonie.
+    r: (N,3), mus: (N,)
+    """
+    diff = r[np.newaxis, :, :] - r[:, np.newaxis, :]      # (N,N,3): r_j - r_i
+    dist3 = np.linalg.norm(diff, axis=2) ** 3             # (N,N)
+    np.fill_diagonal(dist3, np.inf)                        # unikamy 0/0 na przekątnej
+    a = np.einsum('j,ijk->ik', mus, diff / dist3[:, :, None])
     return a
 
 def acc_central(r, central_mass):

@@ -7,13 +7,7 @@ FILES = {
     # Efemerydy planet
     "generic_kernels/spk/planets/de442s.bsp": "de442s.bsp",
     "generic_kernels/lsk/naif0012.tls":       "naif0012.tls",
-
-    # Układ Marsa (księżyce + Mars)
-    "MARS2020/kernels/spk/mar097.bsp":        "mar097.bsp",
-
-    # Statek: cruise (start -> wejście w atmosferę) + EDL (wejście -> lądowanie)
-    "MARS2020/kernels/spk/m2020_cruise_od138_v1.bsp": "m2020_cruise_od138_v1.bsp",
-    "MARS2020/kernels/spk/m2020_edl_v01.bsp":         "m2020_edl_v01.bsp",
+    # https: // ssd.jpl.nasa.gov / ftp / eph / small_bodies / asteroids_de441 / sb441 - n16.bsp
 }
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
