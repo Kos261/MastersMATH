@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.linalg import norm
 
-from orbits import GEO, kepler2cart, MU
+from nbody.orbits import GEO, kepler2cart, MU
 
 
 def initial_formation_4(t0, tf, dt, sat_separation, orbit=GEO):

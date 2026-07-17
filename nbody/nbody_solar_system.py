@@ -1,66 +1,26 @@
 import numpy as np
 import spiceypy as sp
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-from nbody.physics import f
-from solvers import *
-from load_ephemeris import *
+from nbody.physics import *
+from nbody.solvers import *
+from nbody.load_ephemeris import *
 
 
-def propagate_orbit(state0, mus, t0, tf, h, f, integrator, sun_idx=0):
+def propagate_orbit(state0, t0, tf, h, f, integrator):
     times = np.arange(t0, tf + h, h)
     T = len(times)
     N = state0.shape[0]
     states = np.zeros((T, N, 6))
     states[0] = state0
 
-    for i in range(1, T):
-        states[i] = integrator(state=states[i - 1],
-                               t=times[i - 1],
-                               h=h,
-                               f=lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx),
-                               masses=mus,
-                               sun_idx=sun_idx)
+    for i in tqdm(range(1, T)):
+        states[i] = integrator(state=states[i - 1], t=times[i - 1], h=h, f=f)
         if np.any(np.isnan(states[i])):
             print(f"NaN pojawił się w kroku {i}, t = {times[i]}")
             break
     return times, states
-
-
-def hamiltonian(state, mus):
-    """
-    state: (N,6) - JEDEN krok czasowy
-    mus:   (N,)  - GM każdego ciała
-    """
-    r = state[:, :3]  # (N,3)
-    v = state[:, 3:]  # (N,3)
-    N = len(mus)
-
-    mus = mus.astype(np.float64)
-
-    v_squared = np.sum(v * v, axis=1)  # (N,)
-    Ek = 0.5 * np.dot(mus, v_squared)
-
-    Ep = 0.0
-    for i in range(N):
-        for j in range(i + 1, N):
-            rij = r[j] - r[i]
-            r_ij = np.sqrt(np.dot(rij, rij))
-            Ep -= mus[i] * mus[j] / r_ij
-
-    return Ek + Ep
-
-
-def hamiltonian_series(states, mus):
-    """
-    states: (T,N,6) - cała trajektoria
-    Zwraca: (T,) - Hamiltonian w każdym kroku czasowym
-    """
-    T = states.shape[0]
-    H = np.zeros(T)
-    for t in range(T):
-        H[t] = hamiltonian(states[t], mus)
-    return H
 
 
 def add_asteroid_belt_torus(ax, R_au=2.7, tube_radial_au=0.6, tube_vertical_au=0.15):
@@ -78,6 +38,7 @@ def add_asteroid_belt_torus(ax, R_au=2.7, tube_radial_au=0.6, tube_vertical_au=0
     z = r_vert * np.sin(theta)
 
     ax.plot_surface(x, y, z, color='gray', alpha=0.15, linewidth=0, antialiased=True)
+
 
 def plot_comparison(names, num_planets, states, truth):
     fig = plt.figure(figsize=(10, 10))
@@ -98,7 +59,7 @@ def plot_comparison(names, num_planets, states, truth):
     plt.show()
 
 
-def plot_errors(names, states, truth, times, t0):
+def plot_errors(names, states, truth, times, t0, plot_name="ERROR"):
     fig, ax = plt.subplots(figsize=(10, 10))
     for i, name in enumerate(names):
         err = np.linalg.norm(states[:, i, :3] - truth[:, i, :3], axis=1)
@@ -110,6 +71,36 @@ def plot_errors(names, states, truth, times, t0):
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
     plt.title("Position error vs ephemeris")
+    plt.savefig("plots/nbody/" + plot_name)
+    # plt.show()
+
+
+def plot_errors_heliocentric(names, states, truth, times, t0, sun_idx=0):
+    """
+    Liczy błąd pozycji względem Słońca (heliocentrycznie),
+    zamiast względem SSB - eliminuje wpływ ruchu Słońca
+    wywołanego przez ciała nieuwzględnione w symulacji.
+    """
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    sim_sun = states[:, sun_idx, :3]      # (T,3) - pozycja Słońca w symulacji
+    truth_sun = truth[:, sun_idx, :3]     # (T,3) - pozycja Słońca w efemerydzie
+
+    for i, name in enumerate(names):
+        if i == sun_idx:
+            continue  # błąd Słońca względem samego siebie to zawsze 0
+
+        sim_helio = states[:, i, :3] - sim_sun
+        truth_helio = truth[:, i, :3] - truth_sun
+
+        err = np.linalg.norm(sim_helio - truth_helio, axis=1)
+        ax.plot((times - t0) / (24 * 60 * 60), err, label=name)
+
+    ax.set_xlabel('Time [days]')
+    ax.set_ylabel('Position error [km] (heliocentric)')
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+    plt.title("Position error vs ephemeris (heliocentric frame)")
     plt.show()
 
 
@@ -146,9 +137,9 @@ def plot_energy(t, H, real_H, **kwargs):
 
 if __name__ == '__main__':
     try:
-        sp.furnsh(r'/home/konstanty/Pulpit/MastersMATH/data/de442s.bsp')
-        sp.furnsh(r'/home/konstanty/Pulpit/MastersMATH/data/naif0012.tls')
-        sp.furnsh(r'/home/konstanty/Pulpit/MastersMATH/data/sb441-n16.bsp')
+        sp.furnsh(r'data/de442s.bsp')
+        sp.furnsh(r'data/naif0012.tls')
+        sp.furnsh(r'data/sb441-n16.bsp')
         # inspect_kernel(r'/home/konstanty/Pulpit/MastersMATH/data/sb441-n16.bsp')
         # inspect_kernel(r'/home/konstanty/Pulpit/MastersMATH/data/de442s.bsp')
 
@@ -157,7 +148,7 @@ if __name__ == '__main__':
         ))
 
         t0_str = "2000-07-01 00:00:00"
-        tf_str = "2026-07-01 00:00:00"
+        tf_str = "20020-07-01 00:00:00"
         h = float(60 * 60 * 24)
         et0 = sp.str2et(t0_str)
         etf = sp.str2et(tf_str)
@@ -167,14 +158,37 @@ if __name__ == '__main__':
             r'/home/konstanty/Pulpit/MastersMATH/data/sb441-n16.bsp',
             gm_by_number
         )
+        sun_idx_val = 0
 
-        times, states = propagate_orbit(state0=state0, mus=mus, t0=et0, tf=etf,
-                                          h=h, f=f, integrator=runge_kutta_4)
+        physics_models = {
+            "Newton": lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx_val, J2_pert=False, relativistic=False),
+            "Newton_J2": lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx_val, J2_pert=True, relativistic=False),
+            "Newton_J2_Rel": lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx_val, J2_pert=True, relativistic=True)
+        }
 
-        truth = get_true_ephemeris(names, times)  # tylko dla planet
 
-        plot_comparison(names, num_planets, states[:, :num_planets, :], truth)
-        plot_errors(names, states[:, :num_planets, :], truth, times, et0)
+        for model_name, model_func in physics_models.items():
+            times, states_sym = propagate_orbit(state0=state0, t0=et0, tf=etf, h=h, f=model_func, integrator=symplectic_euler)
+            _, states_rk4 = propagate_orbit(state0=state0, t0=et0, tf=etf, h=h, f=model_func, integrator=runge_kutta_4)
+            _, states_str = propagate_orbit(state0=state0, t0=et0, tf=etf, h=h, f=model_func, integrator=stormer_verlet)
+            truth = get_true_ephemeris(names, times)
 
+            plot_errors(names, states_sym, truth, times, et0, model_name + " symplectic euler" + f"h={h}, 20y")
+            plot_errors(names, states_rk4, truth, times, et0, model_name + " runge kutta 4" + f"h={h}, 20y")
+            plot_errors(names, states_str, truth, times, et0, model_name + " stromer verlet" + f"h={h}, 20y")
+
+
+
+
+
+        # plot_comparison(names, num_planets, states[:, :num_planets, :], truth)
+        # plot_errors_heliocentric(names, states, truth, times, et0, sun_idx=0)
+
+
+        # for h_test in [60*60*24, 60*60*12, 60*60*6, 60*60*6]:  # 24h, 12h, 6h
+        #     times, states = propagate_orbit(state0, mus, et0, etf, h_test, f, runge_kutta_4)
+        #     truth = get_true_ephemeris(names, times)
+        #     err_earth = np.linalg.norm(states[-1, 2, :3] - truth[-1, 2, :3])  # błąd końcowy Ziemi
+        #     print(f"h={h_test}: błąd końcowy Ziemi = {err_earth:.1f} km")
     finally:
         sp.kclear()

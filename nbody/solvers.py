@@ -21,24 +21,29 @@ def explicite_euler(state, t, h, f, masses, sun_idx=None):
     return state_new
 
 
-def symplectic_euler(state, t, h, f, masses, sun_idx=None):
+def symplectic_euler(state, t, h, f, masses=None, sun_idx=None):
     r = state[:, :3]
     v = state[:, 3:]
-    a = acc(state, masses, sun_idx=sun_idx)
+
+    a = f(t, state)[:, 3:]
     v_new = v + h * a
     r_new = r + h * v_new
 
     return np.hstack([r_new, v_new])
 
 
-def stormer_verlet(state, t, h, f, masses, sun_idx=None):
+def stormer_verlet(state, t, h, f, masses=None, sun_idx=None):
     r = state[:, :3]
     v = state[:, 3:]
-    a = acc(state, masses, sun_idx=sun_idx)
+
+    a = f(t, state)[:, 3:]
     v_half = v + 0.5 * h * a
     r_new = r + h * v_half
-    state_new = np.hstack([r_new, v])
-    a_new = acc(state_new, masses, sun_idx=sun_idx)
+
+    # Estymacja stanu w t+h do policzenia a_new
+    state_mid = np.hstack([r_new, v_half])
+    a_new = f(t + h, state_mid)[:, 3:]
+
     v_new = v_half + 0.5 * h * a_new
 
     return np.hstack([r_new, v_new])

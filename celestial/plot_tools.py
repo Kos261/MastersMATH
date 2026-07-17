@@ -1,12 +1,11 @@
 import plotly.graph_objects as go
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 plt.style.use( 'dark_background' )
 # from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.animation import FuncAnimation
 import numpy as np
 from itertools import combinations
-from orbits import LVLH, RE
+from nbody.orbits import LVLH
 
 
 class Plotter:

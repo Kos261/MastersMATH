@@ -1,14 +1,12 @@
 import numpy as np
-from numpy.linalg import norm
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from celestial.orbits import SUN, JUP, SAT, URA, PLU, NEP
+from nbody.orbits import SUN, JUP, SAT, URA, PLU, NEP
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import copy
 from numba import jit, prange
-import os
 from tqdm import tqdm
 
 G = 2.95912208286e-4  # AU^3 / (day^2 * Msun)

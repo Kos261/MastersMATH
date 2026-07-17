@@ -2,7 +2,7 @@ import numpy as np
 import os
 
 from initial_conditions import initial_formation_4
-from orbits import GEO
+from nbody.orbits import GEO
 from plot_tools import Plotter
 from nbody.physics import f
 from nbody.solvers import runge_kutta_4
