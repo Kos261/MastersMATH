@@ -153,3 +153,29 @@ def hamiltonian_series(states, mus):
     return H
 
 
+def angular_momentum(state, mus):
+    """
+    state: (N,6) - JEDEN krok czasowy
+    """
+    r = state[:, :3]  # (N,3)
+    v = state[:, 3:]  # (N,3)
+    p = mus[:, None] * v
+    N = len(mus)
+
+    L = np.sum(np.cross(r, p), axis=0)
+
+    return L
+
+
+def angular_momentum_series(states, mus):
+    """
+    states: (T,N,6) - cała trajektoria
+    Zwraca: (T,) - Hamiltonian w każdym kroku czasowym
+    """
+    T = states.shape[0]
+    L = np.zeros((T, 3))
+    for t in range(T):
+        L[t] = angular_momentum(states[t], mus)
+    return L
+
+

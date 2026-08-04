@@ -32,6 +32,10 @@ def symplectic_euler(state, t, h, f, masses=None, sun_idx=None):
     return np.hstack([r_new, v_new])
 
 
+def symplectic_rk(state, t, h, f, masses, sun_idx=None):
+    pass
+
+
 def stormer_verlet(state, t, h, f, masses=None, sun_idx=None):
     r = state[:, :3]
     v = state[:, 3:]
@@ -48,6 +52,15 @@ def stormer_verlet(state, t, h, f, masses=None, sun_idx=None):
 
     return np.hstack([r_new, v_new])
 
+
+def yoshida_4(state, t, h, f, masses=None, sun_idx=None):
+    w1 = 1.0 / (2.0 - 2.0 ** (1.0 / 3.0))
+    w0 = -(2.0 ** (1.0 / 3.0)) / (2.0 - 2.0 ** (1.0 / 3.0))
+
+    state = stormer_verlet(state, t, w1 * h, f)
+    state = stormer_verlet(state, t + h * w1, w0 * h, f)
+    state = stormer_verlet(state, t + h * (w1 + w0), w1 * h, f)
+    return state
 
 def midpoint_scheme(state, t, h, f, masses, sun_idx=None):
     return state + h * f(t + h / 2, state + h/2 * f(t, state, masses), masses)
