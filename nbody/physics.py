@@ -1,5 +1,8 @@
 import numpy as np
-from orbits import MU, G, RE, J2, c
+from multiprocessing import Pool
+import copy
+from numba import jit, prange
+from orbits import MU, G, RE,RS, J2, c
 
 
 def f(t, state, masses, J2_pert=False, relativistic=False, sun_idx=None):
@@ -18,6 +21,7 @@ def acc(r, v, masses, J2_pert=False, relativistic=False, sun_idx=None):
         a += acc_relativistic(r, v, masses, sun_idx)
     return a
 
+@jit(nopython=True, parallel=True, fastmath=True)
 def acc_nbody(r, mus):
     '''
     r: (N, 3) positions [km]
@@ -108,16 +112,8 @@ def acc_j2(r):
     az = factor * z * (5.0 * z2 / r2 - 3.0)
     return np.column_stack((ax, ay, az))                # (N,3)
 
-# def acc_j2(state):
-#     r = state[:, :3]
-#     v = state[:, 3:]
-#     r_norm = np.linalg.norm(r)
-#     v_norm = np.linalg.norm(v)
-#
-#     a = -r * mu / r_norm ** 3
 
-
-def hamiltonian(state, mus):
+def hamiltonian(state, mus, J2_pert=False, sun_idx=0):
     """
     state: (N,6) - JEDEN krok czasowy
     mus:   (N,)  - GM każdego ciała
@@ -138,10 +134,24 @@ def hamiltonian(state, mus):
             r_ij = np.sqrt(np.dot(rij, rij))
             Ep -= mus[i] * mus[j] / r_ij
 
+    if J2_pert:
+        mu_c = mus[sun_idx]
+        r_c = r[sun_idx]
+
+        for i in range(N):
+            if i == sun_idx:
+                continue
+
+            rij = r[i] - r_c
+            rij_norm = np.linalg.norm(rij)
+            z = rij[2]
+
+            Ep += (mus[i] * mu_c * J2 * RS**2 / (2 * rij_norm**3) * (3 * z**2 / rij_norm**2 - 1))
+
     return Ek + Ep
 
 
-def hamiltonian_series(states, mus):
+def hamiltonian_series(states, mus, J2_pert=False, Rel=False, sun_idx=0):
     """
     states: (T,N,6) - cała trajektoria
     Zwraca: (T,) - Hamiltonian w każdym kroku czasowym
@@ -149,7 +159,7 @@ def hamiltonian_series(states, mus):
     T = states.shape[0]
     H = np.zeros(T)
     for t in range(T):
-        H[t] = hamiltonian(states[t], mus)
+        H[t] = hamiltonian(states[t], mus, J2_pert=J2_pert, sun_idx=sun_idx)
     return H
 
 
