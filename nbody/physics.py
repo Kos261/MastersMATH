@@ -16,12 +16,12 @@ def f(t, state, masses, J2_pert=False, relativistic=False, sun_idx=None):
 def acc(r, v, masses, J2_pert=False, relativistic=False, sun_idx=None):
     a = acc_nbody(r, masses)
     if J2_pert:
-        a += acc_j2(r)
+        a += acc_j2(r, masses, sun_idx)
     if relativistic:
         a += acc_relativistic(r, v, masses, sun_idx)
     return a
 
-@jit(nopython=True, parallel=True, fastmath=True)
+
 def acc_nbody(r, mus):
     '''
     r: (N, 3) positions [km]
@@ -38,35 +38,6 @@ def acc_nbody(r, mus):
             rij = r[j] - r[i]
             a[i] += mus[j] * rij / (np.dot(rij, rij)**1.5)
     return a
-
-# def acc_nbody(r, mus):
-#     """
-#     r: (N,3), mus: (N,)
-#     """
-#     diff = r[np.newaxis, :, :] - r[:, np.newaxis, :]      # (N,N,3): r_j - r_i
-#     dist3 = np.linalg.norm(diff, axis=2) ** 3             # (N,N)
-#     np.fill_diagonal(dist3, np.inf)                        # unikamy 0/0 na przekątnej
-#     a = np.einsum('j,ijk->ik', mus, diff / dist3[:, :, None])
-#     return a
-
-# def acc_nbody(r, mus):
-#     """
-#     r: tablica (N, 3), mus: tablica (N,)
-#     """
-#     mus_1d = np.atleast_1d(mus).flatten()
-#
-#     diff = r[np.newaxis, :, :] - r[:, np.newaxis, :]  # (N, N, 3): r_j - r_i
-#     dist3 = np.linalg.norm(diff, axis=2) ** 3  # (N, N)
-#     np.fill_diagonal(dist3, np.inf)  # unikamy 0/0 na przekątnej
-#
-#     # 2. Obliczamy czynnik masowy: mu_j / |r_ij|^3
-#     # mus_1d[np.newaxis, :] ma kształt (1, N), dzieli się przez (N, N) dając macierz (N, N)
-#     factor = mus_1d[np.newaxis, :] / dist3
-#
-#     # 3. Mnożenie wektorów (N, N, 3) przez skalary (N, N, 1) i suma po indeksie j (axis=1)
-#     a = np.sum(diff * factor[:, :, np.newaxis], axis=1)
-#
-#     return a
 
 
 def acc_central(r, central_mass):
@@ -100,17 +71,30 @@ def acc_relativistic(r, v, mus, sun_idx):
     return a_rel
 
 
-def acc_j2(r):
-    r_norm = np.linalg.norm(r, axis=1, keepdims=True)      # (N,1)
-    x, y, z = r[:, 0], r[:, 1], r[:, 2]                # (N,)
-    r2 = (r_norm.squeeze())**2                              # (N,)
-    z2 = z**2                                           # (N,)
-    factor = 1.5 * J2 * MU * (RE**2) / (r2**2.5)        # (N,)
-    c = (5.0 * z2 / r2 - 1.0)                           # (N,)
-    ax = factor * x * c
-    ay = factor * y * c
-    az = factor * z * (5.0 * z2 / r2 - 3.0)
-    return np.column_stack((ax, ay, az))                # (N,3)
+def acc_j2(r, mus, sun_idx):
+    J2_sun = 2.2e-7
+    R_sun = 696000.0
+    mu_sun = mus[sun_idx]
+
+    a_j2 = np.zeros_like(r)
+    r_sun = r[sun_idx]
+
+    for i in range(len(r)):
+        if i == sun_idx:
+            continue
+
+        dr = r[i] - r_sun
+        x, y, z = dr
+        r2 = np.dot(dr, dr)
+        rn = np.sqrt(r2)
+
+        factor = 1.5 * J2_sun * mu_sun * R_sun**2 / rn**5
+
+        a_j2[i, 0] = factor * x * (5.0 * z**2 / r2 - 1.0)
+        a_j2[i, 1] = factor * y * (5.0 * z**2 / r2 - 1.0)
+        a_j2[i, 2] = factor * z * (5.0 * z**2 / r2 - 3.0)
+
+    return a_j2
 
 
 def hamiltonian(state, mus, J2_pert=False, sun_idx=0):

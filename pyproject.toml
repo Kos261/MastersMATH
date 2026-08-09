@@ -19,6 +19,7 @@ dependencies = [
     "tqdm>=4.67.1",
     "notebook>=7.5.1",
     "pyqt5==5.15.11",
+    "cupy-cuda13x>=13.6.0",
 ]
 
 [build-system]

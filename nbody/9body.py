@@ -94,10 +94,14 @@ def plot_errors(names, states_by_method, truth, times, t0, plot_name="ERROR"):
     fig, ax = plt.subplots(figsize=(10, 10))
     time_days = (times - t0) / (24 * 60 * 60)
 
-    for method_name, states in states_by_method.items():
-        for i, body_name in enumerate(names):
-            err = np.linalg.norm(states[:, i, :3] - truth[:, i, :3], axis=1)
-            ax.plot(time_days, err, label=f"{method_name} - {body_name}")
+    # for method_name, states in states_by_method.items():
+    #     for i, body_name in enumerate(names):
+    #         err = np.linalg.norm(states[:, i, :3] - truth[:, i, :3], axis=1)
+    #         ax.plot(time_days, err, label=f"{method_name} - {body_name}")
+
+    for model_name, states in states_by_method.items():
+        err = np.linalg.norm(states[:, 1, :3] - truth[:, 1, :3], axis=1)
+        ax.plot(time_days, err, label=f"{model_name} - Mercury")
 
     ax.set_xlabel("Time [days]")
     ax.set_ylabel("Position error [km]")
@@ -112,6 +116,69 @@ def plot_errors(names, states_by_method, truth, times, t0, plot_name="ERROR"):
     fig.savefig(output_dir / f"{plot_name}.png")
     plt.show()
 
+
+def plot_model_differences(states_by_method, times):
+    fig, ax = plt.subplots(figsize=(10, 10))
+    time_days = (times - times[0]) / 86400
+
+    def mercury_helio(states):
+        return states[:, 1, :3] - states[:, 0, :3]
+
+    r_newton = mercury_helio(states_by_method["Newton"])
+
+    for model_name in ["J2", "REL", "J2+REL"]:
+        r_model = mercury_helio(states_by_method[model_name])
+        diff = np.linalg.norm(r_model - r_newton, axis=1)
+        ax.plot(time_days, diff, label=model_name)
+
+    ax.set_xlabel("Time [days]")
+    ax.set_ylabel("Difference from Newtonian orbit [km]")
+    ax.set_title("Influence of perturbations on Mercury")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    plt.show()
+
+
+def plot_different_steps(states_by_method, names):
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    for model_name, (times, states) in states_by_method.items():
+        time_days = (times - times[0]) / 86400
+        truth = get_true_ephemeris(names, times)
+
+        truth_mercury = truth[:, 1, :3] - truth[:, 0, :3]
+        sim_mercury = states[:, 1, :3] - states[:, 0, :3]
+
+        err = np.linalg.norm(sim_mercury - truth_mercury, axis=1)
+        ax.plot(time_days, err, label=model_name)
+
+    ax.set_xlabel("Time [days]")
+    ax.set_ylabel("Heliocentric position error [km]")
+    ax.set_title("Mercury vs JPL ephemeris")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    plt.show()
+
+def plot_ephemeris_errors(states_by_method, truth, times):
+    fig, ax = plt.subplots(figsize=(10, 10))
+    time_days = (times - times[0]) / 86400
+
+    #Heliocentric
+    truth_mercury = truth[:, 1, :3] - truth[:, 0, :3]
+
+    for model_name, states in states_by_method.items():
+        sim_mercury = states[:, 1, :3] - states[:, 0, :3]
+        err = np.linalg.norm(sim_mercury - truth_mercury, axis=1)
+        # err2 = np.linalg.norm(states[:,1,:3] - truth[:,1,:3], axis=1)
+        ax.plot(time_days, err, label=model_name, linewidth=4, alpha=0.5)
+        # ax.plot(time_days, err2, label=model_name+"Not helio", linestyle="--")
+
+    ax.set_xlabel("Time [days]")
+    ax.set_ylabel("Heliocentric position error [km]")
+    ax.set_title("Mercury vs JPL ephemeris")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    plt.show()
 
 def run_integration(args):
     """Worker function for parallel integration"""
@@ -132,18 +199,22 @@ if __name__ == '__main__':
         sp.furnsh(str(DATA_DIR / "sb441-n16.bsp"))
 
         t0_str = "2000-07-01 00:00:00"
-        tf_str = "2030-07-01 00:00:00"
-        h = float(60 * 60 * 24) # 6h
+        tf_str = "2005-07-01 00:00:00"
+        h = float(60 * 60 * 6) # 6h
         et0 = sp.str2et(t0_str)
         etf = sp.str2et(tf_str)
 
         names, state0, mus = load_initial_states(et0, bodies=BODIES)
         sun_idx = 0
-        J2_pert = True
+
+        ################################################
+        #           TESTING PHYSICAL MODELS            #
+        ################################################
         # models = {
         #     "Newton": lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx, J2_pert=False, relativistic=False),
         #     "J2": lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx, J2_pert=True, relativistic=False),
-        #     "REL" :lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx, J2_pert=False, relativistic=True)
+        #     "REL" :lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx, J2_pert=False, relativistic=True),
+        #     "J2+REL":lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx, J2_pert=True, relativistic=True),
         # }
         # states_by_method = {}
         #
@@ -156,56 +227,75 @@ if __name__ == '__main__':
         #         f=model_func,
         #         integrator=runge_kutta_4,
         #     )
+        # truth = get_true_ephemeris(names, times)
+        # plot_model_differences(states_by_method=states_by_method,times=times)
+        # plot_ephemeris_errors(states_by_method=states_by_method,times=times, truth=truth)
 
-        model_func = lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx, J2_pert=J2_pert, relativistic=False)
-        integrators = {
-                        # "RK4" : runge_kutta_4,
-                       # "Stromer-Verlet": stormer_verlet,
-                       "Yoshida 4": yoshida_4,
-                        #"Symplectic euler": symplectic_euler,
-                       }
 
+
+        ################################################
+        #        TESTING DIFFERENT INTEGRATORS         #
+        ################################################
+        # model_func = lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx, J2_pert=J2_pert, relativistic=False)
+        # integrators = {
+        #                 # "RK4" : runge_kutta_4,
+        #                # "Stromer-Verlet": stormer_verlet,
+        #                "Yoshida 4": yoshida_4,
+        #                 #"Symplectic euler": symplectic_euler,
+        #                }
+        #
+        # states_by_method = {}
+        #
+        #
+        # for method_name, integrator in integrators.items():
+        #     times, states_by_method[method_name] = propagate_orbit(
+        #         state0=state0,
+        #         t0=et0,
+        #         tf=etf,
+        #         h=h,
+        #         f=model_func,
+        #         integrator=integrator,
+        #     )
+        #
+        # truth = get_true_ephemeris(names, times)
+        # plot_comparison(names, states_by_method)
+        # plot_model_differences(states_by_method=states_by_method, times=times)
+        # plot_ephemeris_errors(states_by_method=states_by_method, times=times, truth=truth)
+
+
+        ################################################
+        #           TESTING DIFFERENT STEPS            #
+        ################################################
+        model_func = lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx, J2_pert=True, relativistic=True)
+        steps = [float(60 * 60 * 3), float(60 * 60 * 6), float(60 * 60 * 12), float(60 * 60 * 24)]
         states_by_method = {}
 
+        for h in steps:
+            step = f"h={h / 3600:.0f}h"
 
-        for method_name, integrator in integrators.items():
-            times, states_by_method[method_name] = propagate_orbit(
+            times, states = propagate_orbit(
                 state0=state0,
                 t0=et0,
                 tf=etf,
                 h=h,
                 f=model_func,
-                integrator=integrator,
+                integrator=runge_kutta_4
             )
 
+            states_by_method[step] = (times, states)
 
-        truth = get_true_ephemeris(names, times)
-
-        H_by_method = {method_name: hamiltonian_series(states, mus, J2_pert=J2_pert, sun_idx=sun_idx) for method_name, states in states_by_method.items()}
-        # L_by_method = {method_name: np.linalg.norm(angular_momentum_series(states, mus), axis=1) for method_name, states in states_by_method.items()}
-
-        plot_comparison(names, states_by_method)
+        plot_different_steps(states_by_method, names)
 
 
-        #SPRAWDZENIE BARYCENTRUM
-        states = states_by_method["Yoshida 4"]
-        r_sun = np.linalg.norm(states[:, sun_idx, :3],axis=1)
-        time_days = (times - times[0]) / 86400
-        plt.plot(time_days, r_sun)
-        plt.xlabel("Time [days]")
-        plt.ylabel(r"$|\mathbf r_{\rm Sun}|$ [km]")
-        plt.grid()
-        plt.show()
 
-
-        # plot_errors(names, states_by_method, times, t0, plot_name="ERROR"):
-        plot_errors(names=names,
-                    states_by_method=states_by_method,
-                    truth=truth,
-                    times=times,
-                    t0=et0)
-        plot_energy(times, H_by_method, h=h, tf=tf_str)
-        # plot_momentum(times, L_by_method, h=h, tf=tf_str)
+        ################################################
+        #           ENERGY AND ANG. MOMENTUM           #
+        ################################################
+        # H_by_method = {method_name: hamiltonian_series(states, mus, J2_pert=J2_pert, sun_idx=sun_idx) for method_name, states in states_by_method.items()}
+        # plot_energy(times, H_by_method, h=h, tf=tf_str)
+        #
+        # # L_by_method = {method_name: np.linalg.norm(angular_momentum_series(states, mus), axis=1) for method_name, states in states_by_method.items()}
+        # # plot_momentum(times, L_by_method, h=h, tf=tf_str)
 
     except KeyboardInterrupt:
         print("Interrupted by user")
