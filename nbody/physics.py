@@ -1,5 +1,8 @@
 import numpy as np
-from orbits import MU, G, RE, J2, c
+from multiprocessing import Pool
+import copy
+from numba import jit, prange
+from orbits import MU, G, RE,RS, J2, c
 
 
 def f(t, state, masses, J2_pert=False, relativistic=False, sun_idx=None):
@@ -18,6 +21,7 @@ def acc(r, v, masses, J2_pert=False, relativistic=False, sun_idx=None):
         a += acc_relativistic(r, v, masses, sun_idx)
     return a
 
+@jit(nopython=True, parallel=True, fastmath=True)
 def acc_nbody(r, mus):
     '''
     r: (N, 3) positions [km]

@@ -159,12 +159,15 @@ if __name__ == '__main__':
 
         model_func = lambda t, s: f(t, s, masses=mus, sun_idx=sun_idx, J2_pert=J2_pert, relativistic=False)
         integrators = {
-                        "RK4" : runge_kutta_4,
+                        # "RK4" : runge_kutta_4,
                        # "Stromer-Verlet": stormer_verlet,
-                       # "Yoshida 4": yoshida_4,
+                       "Yoshida 4": yoshida_4,
                         #"Symplectic euler": symplectic_euler,
                        }
+
         states_by_method = {}
+
+
         for method_name, integrator in integrators.items():
             times, states_by_method[method_name] = propagate_orbit(
                 state0=state0,
@@ -190,8 +193,7 @@ if __name__ == '__main__':
         time_days = (times - times[0]) / 86400
         plt.plot(time_days, r_sun)
         plt.xlabel("Time [days]")
-        plt.ylabel("Sun [km]")
-        plt.title()
+        plt.ylabel(r"$|\mathbf r_{\rm Sun}|$ [km]")
         plt.grid()
         plt.show()
 
