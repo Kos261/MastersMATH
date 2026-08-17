@@ -35,6 +35,50 @@ def symplectic_euler(state, t, h, f, masses=None, sun_idx=None):
 def symplectic_rk(state, t, h, f, masses, sun_idx=None):
     pass
 
+from scipy.optimize import root
+import numpy as np
+
+
+def gauss_legendre_4(state, t, h, f, masses=None, sun_idx=None):
+    sqrt3 = np.sqrt(3.0)
+
+    c1 = 0.5 - sqrt3 / 6
+    c2 = 0.5 + sqrt3 / 6
+
+    a11 = 0.25
+    a12 = 0.25 - sqrt3 / 6
+    a21 = 0.25 + sqrt3 / 6
+    a22 = 0.25
+
+    shape = state.shape
+    size = state.size
+
+    def equations(K):
+        K1 = K[:size].reshape(shape)
+        K2 = K[size:].reshape(shape)
+
+        Y1 = state + h * (a11 * K1 + a12 * K2)
+        Y2 = state + h * (a21 * K1 + a22 * K2)
+
+        F1 = K1 - f(t + c1 * h, Y1)
+        F2 = K2 - f(t + c2 * h, Y2)
+
+        return np.concatenate([F1.ravel(), F2.ravel()])
+
+    # initial guess
+    K0 = f(t, state)
+    guess = np.concatenate([K0.ravel(), K0.ravel()])
+
+    sol = root(equations, guess)
+
+    if not sol.success:
+        raise RuntimeError(f"Gauss-Legendre solver failed: {sol.message}")
+
+    K1 = sol.x[:size].reshape(shape)
+    K2 = sol.x[size:].reshape(shape)
+
+    return state + 0.5 * h * (K1 + K2)
+
 
 def stormer_verlet(state, t, h, f, masses=None, sun_idx=None):
     r = state[:, :3]
@@ -51,7 +95,6 @@ def stormer_verlet(state, t, h, f, masses=None, sun_idx=None):
     v_new = v_half + 0.5 * h * a_new
 
     return np.hstack([r_new, v_new])
-
 
 def yoshida_4(state, t, h, f, masses=None, sun_idx=None):
     w1 = 1.0 / (2.0 - 2.0 ** (1.0 / 3.0))

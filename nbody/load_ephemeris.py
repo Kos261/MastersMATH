@@ -1,6 +1,7 @@
 import spiceypy as sp
 import numpy as np
 import re
+from pathlib import Path
 
 BODIES = {
     'SUN':                {'id': 10, 'mu': 132712440041.253311},
@@ -70,6 +71,18 @@ def get_true_ephemeris(names, times):
 
     return truth
 
+
+def get_reference_solution(filename, compute):
+    path = Path(filename)
+
+    if path.exists():
+        data = np.load(path)
+        return data["times"], data["states"]
+
+    times, states = compute()
+    np.savez(path, times=times, states=states)
+
+    return times, states
 
 def read_bsp_comments(path):
     handle = sp.dafopr(path)
