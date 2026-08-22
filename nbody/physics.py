@@ -2,8 +2,9 @@ import numpy as np
 from multiprocessing import Pool
 import copy
 from numba import jit, prange
+from tqdm import tqdm
 from orbits import MU, G, RE,RS, J2, c
-
+from pathlib import Path
 
 def f(t, state, masses, J2_pert=False, relativistic=False, sun_idx=None):
     r = state[:, :3]
@@ -135,15 +136,27 @@ def hamiltonian(state, mus, J2_pert=False, sun_idx=0):
     return Ek + Ep
 
 
-def hamiltonian_series(states, mus, J2_pert=False, Rel=False, sun_idx=0):
+def hamiltonian_series(states, mus, J2_pert=False, Rel=False, sun_idx=0, filename=None):
     """
     states: (T,N,6) - cała trajektoria
     Zwraca: (T,) - Hamiltonian w każdym kroku czasowym
     """
+
+    if filename is not None:
+        path = Path(filename)
+        if path.exists():
+            data = np.load(path)
+            return data["H"]
+
     T = states.shape[0]
     H = np.zeros(T)
+    # for t in tqdm(range(T)):
     for t in range(T):
         H[t] = hamiltonian(states[t], mus, J2_pert=J2_pert, sun_idx=sun_idx)
+
+    if filename is not None:
+        path = Path(filename)
+        np.savez(path, H=H)
     return H
 
 

@@ -102,6 +102,47 @@ def plot_different_steps(states_by_step, names):
     return fig, ax
 
 
+def plot_energy_drift_ratio(results):
+    fig, ax = plt.subplots(figsize=(10, 7))
+
+    for method_name, method_results in results.items():
+        hs = sorted(method_results.keys())
+        h_hours = np.array(hs) / 3600
+        ratios = [method_results[h]["ratio"] for h in hs]
+
+        ax.plot(h_hours, ratios, marker="o", label=method_name)
+
+    # ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("Step size h [hours]")
+    ax.set_ylabel(r"$\rho_H = D_H / E_H^{osc}$")
+    ax.set_title("Energy drift relative to oscillatory energy error")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    return fig, ax
+
+def plot_crossover_time(results):
+    fig, ax = plt.subplots(figsize=(10, 7))
+
+    for method_name, method_results in results.items():
+        hs = sorted(method_results.keys())
+        h_hours = np.array(hs) / 3600.0
+        T_star_years = [method_results[h]["crossover_days"] / 365.25 for h in hs]
+
+        ax.plot(h_hours, T_star_years, marker="o", label=method_name)
+
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("Step size h [hours]")
+    ax.set_ylabel(r"$T_*$ [years]")
+    ax.set_title(r"Crossover time $T_* = E_H^{osc}/|b|$")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    return fig, ax
+
+
 def plot_orbits(names, states_by_method):
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection="3d")
@@ -118,24 +159,21 @@ def plot_orbits(names, states_by_method):
     plt.show()
 
 
-def plot_energy(times, H_by_method,times_truth=None,  H_truth=None):
+def plot_energy(times, H_by_method, H0):
     fig, ax = plt.subplots(figsize=(10, 10))
     time_days = (times - times[0]) / 86400
 
-    if H_truth is not None and times_truth is not None:
-        idx = np.searchsorted(times_truth, times)
-        mask = idx < len(H_truth)
-        idx = idx[mask]
-        H_ref = H_truth[idx]
-        t_ref = time_days[mask]
-        ax.plot(t_ref, (H_ref - H_ref[0]) / abs(H_ref[0]), label="Reference",alpha=0.5, linestyle="--")
+    for name, H in H_by_method.items():
+        # err = (H - H0) / abs(H0)
+        # ax.plot(time_days, err, label=name)
+        ax.plot(time_days, (H - H0), label=name)
 
-    for method_name, H in H_by_method.items():
-        ax.plot(time_days, (H - H[0]) / H[0], label=method_name)
+    # ax.axhline(H0, linestyle="--", alpha=0.5, label="Exact")
+    ax.axhline(0, linestyle="--", alpha=0.5)
 
     ax.set_xlabel("Time [days]")
-    ax.set_ylabel("Hamiltonian")
-    ax.set_title("Hamiltonian comparison")
+    ax.set_ylabel(r"$H(t)-H_0$")
+    ax.set_title("Hamiltonian")
     ax.grid(True, alpha=0.3)
     ax.legend()
 
